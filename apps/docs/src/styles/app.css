@@ -1,3 +1,60 @@
 @import "tailwindcss";
 @import "fumadocs-ui/css/neutral.css";
 @import "fumadocs-ui/css/preset.css";
+
+@keyframes falcon-connect-gradient-shift {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+/* Multi-stop pastel blue → orange; wide background + pan keeps color always in transition */
+.falcon-connect-gradient-text {
+  background-image: linear-gradient(
+    90deg,
+    #7dd3fc 0%,
+    #bae6fd 7.14%,
+    #93c5fd 14.29%,
+    #bfdbfe 21.43%,
+    #a5f3fc 28.57%,
+    #7dd3fc 35.71%,
+    #c7e8ff 42.86%,
+    #fde68a 50%,
+    #fed7aa 57.14%,
+    #fdba74 64.29%,
+    #fde68a 71.43%,
+    #fdba74 78.57%,
+    #fed7aa 85.71%,
+    #fdba74 92.86%,
+    #fde68a 100%
+  );
+  background-size: 350% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: falcon-connect-gradient-shift 5.5s linear infinite alternate;
+}
+
+.dark .falcon-connect-gradient-text {
+  background-image: linear-gradient(
+    90deg,
+    #38bdf8 0%,
+    #7dd3fc 7.14%,
+    #60a5fa 14.29%,
+    #93c5fd 21.43%,
+    #38bdf8 28.57%,
+    #22d3ee 35.71%,
+    #a5d8ff 42.86%,
+    #fcd34d 50%,
+    #fed7aa 57.14%,
+    #fdba74 64.29%,
+    #fde68a 71.43%,
+    #fdba74 78.57%,
+    #fed7aa 85.71%,
+    #fdba74 92.86%,
+    #fde68a 100%
+  );
+}
