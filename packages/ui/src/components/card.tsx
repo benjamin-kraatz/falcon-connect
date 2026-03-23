@@ -1,4 +1,4 @@
-import { cn } from "@connect/ui/lib/utils";
+import { cn } from "@falcon/ui/lib/utils";
 import * as React from "react";
 
 function Card({

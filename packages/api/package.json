@@ -1,5 +1,5 @@
 {
-  "name": "@connect/api",
+  "name": "@falcon/api",
   "type": "module",
   "exports": {
     ".": {
@@ -11,9 +11,9 @@
   },
   "scripts": {},
   "dependencies": {
-    "@connect/auth": "workspace:*",
-    "@connect/db": "workspace:*",
-    "@connect/env": "workspace:*",
+    "@falcon/auth": "workspace:*",
+    "@falcon/db": "workspace:*",
+    "@falcon/env": "workspace:*",
     "@orpc/client": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
@@ -22,7 +22,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@connect/config": "workspace:*",
+    "@falcon/config": "workspace:*",
     "hono": "catalog:",
     "typescript": "^5"
   }

@@ -1,4 +1,4 @@
-import { env } from "@connect/env/server";
+import { env } from "@falcon/env/server";
 import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 

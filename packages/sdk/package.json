@@ -1,5 +1,5 @@
 {
-  "name": "@falcon/auth",
+  "name": "@falcon/sdk",
   "type": "module",
   "exports": {
     ".": {
@@ -10,15 +10,11 @@
     }
   },
   "scripts": {},
-  "dependencies": {
-    "@falcon/db": "workspace:*",
-    "@falcon/env": "workspace:*",
-    "better-auth": "catalog:",
-    "dotenv": "catalog:",
-    "zod": "catalog:"
+  "peerDependencies": {
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@falcon/config": "workspace:*",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }

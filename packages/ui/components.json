@@ -12,11 +12,11 @@
   },
   "iconLibrary": "lucide",
   "aliases": {
-    "components": "@connect/ui/components",
-    "utils": "@connect/ui/lib/utils",
-    "hooks": "@connect/ui/hooks",
-    "lib": "@connect/ui/lib",
-    "ui": "@connect/ui/components"
+    "components": "@falcon/ui/components",
+    "utils": "@falcon/ui/lib/utils",
+    "hooks": "@falcon/ui/hooks",
+    "lib": "@falcon/ui/lib",
+    "ui": "@falcon/ui/components"
   },
   "menuColor": "default",
   "menuAccent": "subtle",

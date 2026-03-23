@@ -1,11 +1,11 @@
 {
-  "extends": "@connect/config/tsconfig.base.json",
+  "extends": "@falcon/config/tsconfig.base.json",
   "compilerOptions": {
     "baseUrl": ".",
     "jsx": "react-jsx",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "paths": {
-      "@connect/ui/*": ["./src/*"]
+      "@falcon/ui/*": ["./src/*"]
     }
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],

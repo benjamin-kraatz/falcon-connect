@@ -8,10 +8,10 @@
     "compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server"
   },
   "dependencies": {
-    "@connect/api": "workspace:*",
-    "@connect/auth": "workspace:*",
-    "@connect/db": "workspace:*",
-    "@connect/env": "workspace:*",
+    "@falcon/api": "workspace:*",
+    "@falcon/auth": "workspace:*",
+    "@falcon/db": "workspace:*",
+    "@falcon/env": "workspace:*",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",
     "@orpc/zod": "catalog:",
@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
-    "@connect/config": "workspace:*",
+    "@falcon/config": "workspace:*",
     "@types/node": "catalog:",
     "alchemy": "catalog:",
     "tsdown": "^0.16.5",

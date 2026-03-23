@@ -1,5 +1,5 @@
 {
-  "name": "@connect/env",
+  "name": "@falcon/env",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,8 +13,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@connect/config": "workspace:*",
-    "@connect/infra": "workspace:*",
+    "@falcon/config": "workspace:*",
+    "@falcon/infra": "workspace:*",
     "@types/node": "catalog:",
     "typescript": "^5"
   }

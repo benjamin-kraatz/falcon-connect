@@ -13,8 +13,8 @@
   "iconLibrary": "lucide",
   "aliases": {
     "components": "@/components",
-    "utils": "@connect/ui/lib/utils",
-    "ui": "@connect/ui/components",
+    "utils": "@falcon/ui/lib/utils",
+    "ui": "@falcon/ui/components",
     "lib": "@/lib",
     "hooks": "@/hooks"
   },

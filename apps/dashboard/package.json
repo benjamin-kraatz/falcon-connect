@@ -1,5 +1,5 @@
 {
-  "name": "web",
+  "name": "@falcon/connect-dashboard",
   "private": true,
   "type": "module",
   "scripts": {
@@ -8,10 +8,10 @@
     "dev:bare": "vite dev"
   },
   "dependencies": {
-    "@connect/api": "workspace:*",
-    "@connect/auth": "workspace:*",
-    "@connect/env": "workspace:*",
-    "@connect/ui": "workspace:*",
+    "@falcon/api": "workspace:*",
+    "@falcon/auth": "workspace:*",
+    "@falcon/env": "workspace:*",
+    "@falcon/ui": "workspace:*",
     "@libsql/client": "catalog:",
     "@orpc/client": "catalog:",
     "@orpc/server": "catalog:",
@@ -37,7 +37,7 @@
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.17.1",
-    "@connect/config": "workspace:*",
+    "@falcon/config": "workspace:*",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@tanstack/react-router-devtools": "^1.141.1",
     "@testing-library/dom": "^10.4.0",

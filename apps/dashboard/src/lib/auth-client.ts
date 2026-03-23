@@ -1,4 +1,4 @@
-import { env } from "@connect/env/web";
+import { env } from "@falcon/env/web";
 import { createAuthClient } from "better-auth/react";
 
 export const authClient = createAuthClient({
