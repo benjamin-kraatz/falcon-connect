@@ -7,6 +7,9 @@
     },
     "./*": {
       "default": "./src/*.ts"
+    },
+    "./effect": {
+      "default": "./src/effect/index.ts"
     }
   },
   "scripts": {},

@@ -278,12 +278,14 @@
     },
     "packages/sdk": {
       "name": "@falcon/sdk",
+      "dependencies": {
+        "jose": "^6.2.2",
+      },
       "devDependencies": {
         "@falcon/config": "workspace:*",
         "typescript": "^5.9.3",
       },
       "peerDependencies": {
-        "jose": "^6.2.2",
         "zod": "^4.13.1",
       },
     },
