@@ -1,0 +1,417 @@
+---
+title: SDK Usage Guide
+description: Copy-paste TypeScript examples for source apps, target apps, consent flows, and runtime verification.
+icon: Code2
+---
+
+# SDK Usage Guide
+
+This page is intentionally practical. It is not the conceptual overview of Falcon Connect and it is not the full protocol reference. It is the page you reach for when you want to wire the SDK into a real application and you want examples that match the current exported API.
+
+The SDK is split into three parts:
+
+- a source-app client for initiating connections and minting runtime tokens
+- a target-app client for resolving install intents, submitting consent decisions, and verifying runtime tokens
+- lower-level crypto and UI helpers for custom integrations
+
+All examples below are written as plain TypeScript so they are easy to adapt to whatever HTTP framework you are using.
+
+## Installation
+
+Install the SDK in the partner application:
+
+```bash
+bun add @falcon/sdk
+```
+
+The SDK expects that your application already has:
+
+- a Falcon base URL
+- a trusted app id
+- an active key id
+- a private JWK string or object for signing requests to Falcon
+
+In most applications you will load those values from environment variables or your application config layer.
+
+## Basic Configuration
+
+The smallest useful setup is to create one SDK client instance on the source side or the target side and reuse it rather than re-creating it for every request.
+
+```ts
+import { createFalconConnectSourceClient, createFalconConnectTargetClient } from "@falcon/sdk";
+
+const falconBaseUrl = "https://connect.falcon.example";
+const appId = "orders";
+const keyId = "orders-key-1";
+const privateJwk = JSON.parse(process.env.FALCON_PRIVATE_JWK!);
+
+export const falconSource = createFalconConnectSourceClient({
+  baseUrl: falconBaseUrl,
+  appId,
+  keyId,
+  privateJwk,
+});
+
+export const falconTarget = createFalconConnectTargetClient({
+  baseUrl: falconBaseUrl,
+  appId,
+  keyId,
+  privateJwk,
+});
+```
+
+You would normally create **one** of these clients per app role. A source-only app usually needs only the source client. A target-only app usually needs only the target client. An app that can act in both roles may create both.
+
+## Source App: Start an Installation Flow
+
+The source app starts the relationship by creating an install intent.
+
+```ts
+import { falconSource } from "./falcon";
+
+export async function startConnectionFlow() {
+  const result = await falconSource.createInstallIntent({
+    targetAppId: "invoices",
+    falconSubjectId: "usr_123",
+    organizationId: "org_456",
+    requestedScopes: ["invoices:read", "invoices:search"],
+    sourceReturnUrl: "https://orders.example.com/settings/falcon/callback",
+    expiresInSeconds: 900,
+  });
+
+  return result.connectUrl;
+}
+```
+
+In a browser-driven flow, the usual next step is to redirect the user to `result.connectUrl`.
+
+For example, in an Express-style handler:
+
+```ts
+export async function connectInvoicesHandler(req: Request, res: Response) {
+  const connectUrl = await startConnectionFlow();
+  res.redirect(connectUrl);
+}
+```
+
+The returned object also includes `intentId`, `intentToken`, and `expiresAt`, which are useful for logging and debugging. The source app normally does not need to persist the install token itself once the redirect is issued.
+
+## Source App: Handle the Callback
+
+After the target app collects consent, Falcon returns a callback URL to the target app, which then redirects the user back to your source app. The source SDK includes a helper to parse that callback state.
+
+```ts
+import { falconSource } from "./falcon";
+
+export function handleFalconCallback(url: string) {
+  const callback = falconSource.parseInstallCallback(url);
+
+  if (callback.status === "approved" && callback.connectionId) {
+    return {
+      ok: true,
+      connectionId: callback.connectionId,
+      intentId: callback.intentId,
+    };
+  }
+
+  return {
+    ok: false,
+    status: callback.status,
+    reason: callback.reason,
+    intentId: callback.intentId,
+  };
+}
+```
+
+A typical source app persists the `connectionId` in its own integration table as soon as the callback reports approval.
+
+## Source App: Mint a Runtime Connection Token
+
+Once the connection exists, the source app uses the stored `connectionId` to mint a short-lived Falcon token whenever it wants to call the target app.
+
+```ts
+import { falconSource } from "./falcon";
+
+export async function getConnectionToken(connectionId: string) {
+  const result = await falconSource.issueConnectionAccessToken({
+    connectionId,
+    expiresInSeconds: 300,
+  });
+
+  return result.token;
+}
+```
+
+If you also want the decoded claim set Falcon used, the SDK already returns that in `result.claims`.
+
+```ts
+const result = await falconSource.issueConnectionAccessToken({
+  connectionId: "conn_123",
+});
+
+console.log(result.claims.targetAppId);
+console.log(result.claims.scopes);
+console.log(result.expiresAt);
+```
+
+## Source App: Call the Target App
+
+Falcon Connect does not define your business API shape, so the exact outbound request is up to you. A common pattern is to place the Falcon token in an authorization-style header.
+
+```ts
+export async function fetchInvoices(connectionId: string) {
+  const token = await getConnectionToken(connectionId);
+
+  const response = await fetch("https://invoices.example.com/api/invoices/search", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({
+      orderId: "ord_123",
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Invoice request failed with ${response.status}`);
+  }
+
+  return response.json();
+}
+```
+
+## Target App: Resolve the Install Intent
+
+When the user lands on the target app's connect route, the first Falcon-specific step is to extract the install token from the query string and resolve it.
+
+```ts
+import { falconTarget } from "./falcon";
+
+export async function resolveIncomingIntent(requestUrl: string) {
+  const url = new URL(requestUrl);
+  const intentToken = url.searchParams.get("falcon_connect_intent");
+
+  if (!intentToken) {
+    throw new Error("Missing falcon_connect_intent query parameter");
+  }
+
+  const intent = await falconTarget.resolveInstallIntent(intentToken);
+
+  return { intentToken, intent };
+}
+```
+
+Keep both values. The resolved intent object does **not** replace the original token. The current `approveInstallIntent` helper expects both the resolved intent and the original `intentToken`.
+
+## Target App: Build the Consent UI State
+
+The target app owns the consent screen, but the SDK can prepare the scope-selection model so your UI logic does not have to rebuild the required/system rules by hand.
+
+```ts
+import { buildConsentSelection } from "@falcon/sdk";
+
+export function buildConsentViewModel(
+  intent: Awaited<ReturnType<typeof resolveIncomingIntent>>["intent"],
+) {
+  return buildConsentSelection(intent).map((scope) => ({
+    id: scope.name,
+    title: scope.displayName,
+    description: scope.description,
+    checked: scope.selected,
+    disabled: scope.locked,
+  }));
+}
+```
+
+The important behavior is that `locked` already reflects Falcon's rules for required and system scopes.
+
+## Target App: Approve the Install
+
+If the user approves the request, you can either use the higher-level `approveInstallIntent` helper or the lower-level `submitInstallIntentDecision` helper.
+
+The higher-level helper is the easiest path when you only need to submit an approval:
+
+```ts
+import { falconTarget } from "./falcon";
+
+export async function approveConnection(input: {
+  intentToken: string;
+  intent: Awaited<ReturnType<typeof resolveIncomingIntent>>["intent"];
+  selectedScopeNames: string[];
+}) {
+  const result = await falconTarget.approveInstallIntent({
+    intentToken: input.intentToken,
+    intent: input.intent,
+    selectedScopeNames: input.selectedScopeNames,
+  });
+
+  return result.redirectUrl;
+}
+```
+
+The `selectedScopeNames` array should contain only the optional scopes the user kept enabled. Required and system scopes are automatically preserved by the helper.
+
+## Target App: Deny the Install
+
+If the user denies the request, use `submitInstallIntentDecision` directly:
+
+```ts
+export async function denyConnection(intentToken: string, deniedReason?: string) {
+  const result = await falconTarget.submitInstallIntentDecision({
+    intentToken,
+    approved: false,
+    grantedScopes: [],
+    deniedReason,
+  });
+
+  return result.redirectUrl;
+}
+```
+
+The returned `redirectUrl` is what you should use to send the user back to the source app once the decision is complete.
+
+## Target App: Verify a Runtime Token
+
+At runtime, the target app usually extracts the Falcon JWT from the incoming request and verifies it through the target client.
+
+```ts
+import { falconTarget } from "./falcon";
+
+export async function verifyIncomingFalconToken(token: string) {
+  const verification = await falconTarget.verifyConnectionToken({
+    token,
+    allowIntrospectionFallback: true,
+  });
+
+  return verification;
+}
+```
+
+The return shape depends on whether verification succeeded locally or had to fall back to Falcon introspection.
+
+If verification succeeds locally, the result contains the decoded JWT claims:
+
+```ts
+const verification = await verifyIncomingFalconToken(token);
+
+if (verification.mode === "local") {
+  console.log(verification.result.connectionId);
+  console.log(verification.result.scopes);
+}
+```
+
+If verification falls back to introspection, the result is an introspection payload instead:
+
+```ts
+const verification = await verifyIncomingFalconToken(token);
+
+if (verification.mode === "introspection") {
+  if (!verification.result.active || !verification.result.connection) {
+    throw new Error(`Connection inactive: ${verification.result.reason}`);
+  }
+
+  const grantedScopes = verification.result.connection.grantedScopes
+    .filter((scope) => scope.selected)
+    .map((scope) => scope.name);
+
+  console.log(grantedScopes);
+}
+```
+
+That difference is important enough that your middleware should branch on `verification.mode` rather than assuming a single result shape.
+
+## Target App: Example Middleware Shape
+
+Here is a framework-neutral example of how you might wrap the runtime verification step before serving a protected endpoint:
+
+```ts
+export async function requireFalconConnection(request: Request) {
+  const authorization = request.headers.get("authorization");
+
+  if (!authorization?.startsWith("Bearer ")) {
+    throw new Error("Missing Falcon bearer token");
+  }
+
+  const token = authorization.slice("Bearer ".length);
+  const verification = await falconTarget.verifyConnectionToken({
+    token,
+    allowIntrospectionFallback: true,
+  });
+
+  if (verification.mode === "local") {
+    return {
+      connectionId: verification.result.connectionId,
+      sourceAppId: verification.result.sourceAppId,
+      targetAppId: verification.result.targetAppId,
+      scopes: verification.result.scopes,
+      falconSubjectId: verification.result.falconSubjectId,
+      organizationId: verification.result.organizationId,
+    };
+  }
+
+  if (!verification.result.active || !verification.result.connection) {
+    throw new Error(`Inactive Falcon connection: ${verification.result.reason}`);
+  }
+
+  return {
+    connectionId: verification.result.connection.id,
+    sourceAppId: verification.result.connection.sourceAppId,
+    targetAppId: verification.result.connection.targetAppId,
+    scopes: verification.result.connection.grantedScopes
+      .filter((scope) => scope.selected)
+      .map((scope) => scope.name),
+    falconSubjectId: verification.result.connection.falconSubjectId,
+    organizationId: verification.result.connection.organizationId,
+  };
+}
+```
+
+## Lower-Level Helper: Manual Falcon Request Signing
+
+Most applications should stay at the source and target client level. If you need lower-level control, the SDK also exports request-signing helpers.
+
+For example, to sign a Falcon request manually:
+
+```ts
+import { createFalconAppAuthHeaders } from "@falcon/sdk";
+
+export async function buildSignedHeaders(body: unknown) {
+  return createFalconAppAuthHeaders({
+    appId: "orders",
+    keyId: "orders-key-1",
+    privateJwk: JSON.parse(process.env.FALCON_PRIVATE_JWK!),
+    method: "POST",
+    url: "https://connect.falcon.example/v1/install-intents",
+    body: JSON.stringify(body),
+  });
+}
+```
+
+This is useful if you want to integrate with a custom HTTP layer while still matching Falcon's expected signature format.
+
+## Lower-Level Helper: Consent Selection Normalization
+
+If you are rendering a custom UI and want to normalize the selected scope set yourself, the SDK also exports helpers for that:
+
+```ts
+import { buildConsentSelection, normalizeGrantedScopes } from "@falcon/sdk";
+
+const selection = buildConsentSelection(intent, userSelectedScopeNames);
+const grantedScopes = normalizeGrantedScopes(intent, userSelectedScopeNames);
+```
+
+`buildConsentSelection` is helpful when you need a richer UI model. `normalizeGrantedScopes` is helpful when you just need the final list of scope names to submit back to Falcon.
+
+## A Complete Minimal Pair
+
+If you want the shortest end-to-end summary of how the SDK pieces fit together, it looks like this:
+
+1. Source app creates an install intent and redirects the user.
+2. Target app resolves the install token and renders consent.
+3. Target app approves or denies and redirects back.
+4. Source app stores the resulting `connectionId`.
+5. Source app later mints a runtime token with that `connectionId`.
+6. Target app verifies the token locally and introspects on fallback.
+
+That is the full SDK story in six steps. Everything else in this guide is detail around those steps.
