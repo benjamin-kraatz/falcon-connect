@@ -37,6 +37,10 @@ In very, very simple terms, this is very similar to how OAuth works. But with a 
 
 OAuth is a standard for authentication, while FALCON Connect is a standard for service integration. The auth client is pretty analogous to the source application, and the Identity Provider is somewhat analogous to the target application.
 
+## SDK
+
+To implement the FALCON Connect infrastructure in your application, you can use the [FALCON Connect SDK](./packages/sdk/README.md).
+
 ---
 
 ## Stack
