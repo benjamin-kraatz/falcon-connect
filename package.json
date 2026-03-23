@@ -47,6 +47,9 @@
     "deploy": "nx run-many -t deploy --projects=@falcon/infra",
     "destroy": "nx run-many -t destroy --projects=@falcon/infra",
     "check": "oxlint && oxfmt --write",
+    "format": "oxfmt --write",
+    "lint": "oxlint",
+    "test": "nx run-many -t test",
     "prepare": "effect-language-service patch"
   },
   "dependencies": {
