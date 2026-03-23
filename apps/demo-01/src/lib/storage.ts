@@ -66,3 +66,26 @@ export function writeSourceDemoState(nextState: SourceDemoState) {
 
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(nextState));
 }
+
+export function persistApprovedSourceConnection(input: {
+  connectionId: string;
+  intentId: string;
+  grantedScopes: string[];
+  callbackUrl: string;
+}) {
+  const current = readSourceDemoState();
+  const nextState: SourceDemoState = {
+    ...current,
+    connection: {
+      connectionId: input.connectionId,
+      intentId: input.intentId,
+      status: "approved",
+      grantedScopes: [...input.grantedScopes],
+      callbackUrl: input.callbackUrl,
+      updatedAt: new Date().toISOString(),
+    },
+  };
+
+  writeSourceDemoState(nextState);
+  return nextState;
+}

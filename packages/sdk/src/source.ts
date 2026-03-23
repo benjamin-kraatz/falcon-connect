@@ -1,10 +1,14 @@
 import {
   createInstallIntentInputSchema,
   createInstallIntentResultSchema,
+  connectionRecordSchema,
+  findConnectionInputSchema,
   issueConnectionTokenInputSchema,
   issueConnectionTokenResultSchema,
   type CreateInstallIntentInput,
   type CreateInstallIntentResult,
+  type FindConnectionInput,
+  type ConnectionRecord,
   type IssueConnectionTokenInput,
   type IssueConnectionTokenResult,
 } from "./protocol";
@@ -72,6 +76,17 @@ export class FalconConnectSourceClient {
       issueConnectionTokenInputSchema.parse(input),
       issueConnectionTokenResultSchema,
       "/v1/connections/access-token",
+    );
+  }
+
+  async findConnection(input: FindConnectionInput): Promise<ConnectionRecord | null> {
+    return signedJsonRequest(
+      this.options,
+      findConnectionInputSchema.parse(input),
+      {
+        parse: (value) => (value == null ? null : connectionRecordSchema.parse(value)),
+      },
+      "/v1/connections/find",
     );
   }
 

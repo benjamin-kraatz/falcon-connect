@@ -1,13 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { startTransition, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Button, JsonCard, PageFrame, Panel, StatusPill } from "@/components/ui";
-import { demoProjects } from "@/lib/demo-data";
+import { demoProjects, demoWorkspaces } from "@/lib/demo-data";
 import { formatDateTime, formatJson, tokenPreview } from "@/lib/format";
-import { type SourceRuntimeCall } from "@/lib/storage";
+import {
+  persistApprovedSourceConnection,
+  readSourceDemoState,
+  type SourceRuntimeCall,
+} from "@/lib/storage";
 import { useSourceDemoState } from "@/lib/use-source-state";
-import { issueConnectionTokenAction } from "@/functions/source-actions";
+import { issueConnectionTokenAction, recoverConnectionAction } from "@/functions/source-actions";
 
 type RuntimePayload = {
   verification: unknown;
@@ -31,16 +35,81 @@ function RouteComponent() {
     () => demoProjects.find((entry) => entry.id === projectId) ?? demoProjects[0],
     [projectId],
   );
+  const workspace = useMemo(
+    () => demoWorkspaces.find((entry) => entry.id === project.workspaceId) ?? demoWorkspaces[0],
+    [project.workspaceId],
+  );
+  const activeConnection = state.connection ?? readSourceDemoState().connection;
+
+  useEffect(() => {
+    if (!ready || activeConnection) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        const recovered = await recoverConnectionAction({
+          data: {
+            falconSubjectId: workspace.falconSubjectId,
+            organizationId: workspace.organizationId,
+          },
+        });
+
+        if (!recovered || recovered.status !== "active") {
+          return;
+        }
+
+        updateState((current) =>
+          persistApprovedSourceConnection({
+            connectionId: recovered.id,
+            intentId: current.connection?.intentId ?? current.latestIntent?.intentId ?? "recovered",
+            grantedScopes: recovered.grantedScopes
+              .filter((scope) => scope.selected)
+              .map((scope) => scope.name),
+            callbackUrl: current.connection?.callbackUrl ?? "recovered-from-falcon",
+          }),
+        );
+      } catch {
+        // Runtime recovery is best-effort. Keep the existing local-state path silent.
+      }
+    })();
+  }, [activeConnection, ready, updateState, workspace.falconSubjectId, workspace.organizationId]);
 
   const mintToken = async () => {
-    if (!state.connection?.connectionId) {
+    let connectionId =
+      activeConnection?.connectionId ?? readSourceDemoState().connection?.connectionId;
+
+    if (!connectionId) {
+      const recovered = await recoverConnectionAction({
+        data: {
+          falconSubjectId: workspace.falconSubjectId,
+          organizationId: workspace.organizationId,
+        },
+      });
+
+      if (recovered?.status === "active") {
+        updateState((current) =>
+          persistApprovedSourceConnection({
+            connectionId: recovered.id,
+            intentId: current.connection?.intentId ?? current.latestIntent?.intentId ?? "recovered",
+            grantedScopes: recovered.grantedScopes
+              .filter((scope) => scope.selected)
+              .map((scope) => scope.name),
+            callbackUrl: current.connection?.callbackUrl ?? "recovered-from-falcon",
+          }),
+        );
+        connectionId = recovered.id;
+      }
+    }
+
+    if (!connectionId) {
       toast.error("Approve the install flow before minting a runtime token.");
       return null;
     }
 
     const tokenResult = await issueConnectionTokenAction({
       data: {
-        connectionId: state.connection.connectionId,
+        connectionId,
       },
     });
 
@@ -208,7 +277,7 @@ function RouteComponent() {
               <p>
                 Stored connection:{" "}
                 <span className="text-[var(--ink)]">
-                  {state.connection?.connectionId ?? "No approved callback yet"}
+                  {activeConnection?.connectionId ?? "No approved callback yet"}
                 </span>
               </p>
             </div>
@@ -223,7 +292,7 @@ function RouteComponent() {
             <div className="grid gap-3 sm:grid-cols-2">
               <Snapshot
                 label="Connection status"
-                value={state.connection?.status ?? "not connected"}
+                value={activeConnection?.status ?? "not connected"}
               />
               <Snapshot
                 label="Token expiry"

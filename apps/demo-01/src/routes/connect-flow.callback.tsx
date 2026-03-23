@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { PageFrame, Panel, RouteLink, StatusPill } from "@/components/ui";
 import { sourceDemoConfig } from "@/lib/config";
+import { persistApprovedSourceConnection } from "@/lib/storage";
 import { useSourceDemoState } from "@/lib/use-source-state";
 
 export const Route = createFileRoute("/connect-flow/callback")({
@@ -33,24 +34,23 @@ function RouteComponent() {
   }, []);
 
   useEffect(() => {
-    if (!callback?.intentId) {
+    if (callback?.status !== "approved" || !callback.connectionId || !callback.intentId) {
       return;
     }
 
-    updateState((current) => ({
-      ...current,
-      connection:
-        callback.status === "approved" && callback.connectionId
-          ? {
-              connectionId: callback.connectionId,
-              intentId: callback.intentId ?? "unknown-intent",
-              status: callback.status,
-              grantedScopes: current.latestIntent?.requestedScopes ?? [],
-              callbackUrl: typeof window === "undefined" ? "" : window.location.href,
-              updatedAt: new Date().toISOString(),
-            }
-          : current.connection,
-    }));
+    const connectionId = callback.connectionId;
+    const intentId = callback.intentId;
+    const callbackUrl = typeof window === "undefined" ? "" : window.location.href;
+
+    updateState((current) =>
+      persistApprovedSourceConnection({
+        connectionId,
+        intentId,
+        grantedScopes:
+          current.latestIntent?.requestedScopes ?? current.connection?.grantedScopes ?? [],
+        callbackUrl,
+      }),
+    );
   }, [callback, updateState]);
 
   const tone =

@@ -36,6 +36,7 @@ import {
   connectionAccessTokenClaimsSchema,
   createInstallIntentInputSchema,
   decideInstallIntentInputSchema,
+  findConnectionInputSchema,
   installIntentRecordSchema,
   introspectConnectionInputSchema,
   issueConnectionTokenInputSchema,
@@ -1161,6 +1162,36 @@ export async function issueConnectionAccessToken(auth: AuthenticatedAppRequest, 
     expiresAt: new Date(claims.exp * 1000).toISOString(),
     claims,
   };
+}
+
+export async function findConnection(auth: AuthenticatedAppRequest, rawInput: unknown) {
+  const input = findConnectionInputSchema.parse(rawInput);
+  const candidates = await db
+    .select()
+    .from(connection)
+    .where(
+      and(
+        eq(connection.sourceAppId, auth.app.id),
+        eq(connection.targetAppId, input.targetAppId),
+        eq(connection.falconSubjectId, input.falconSubjectId),
+        eq(connection.organizationId, input.organizationId),
+      ),
+    )
+    .orderBy(desc(connection.updatedAt))
+    .limit(10);
+
+  const selected =
+    candidates.find((row) => row.status === "active") ??
+    candidates.find((row) => row.status === "paused") ??
+    candidates[0] ??
+    null;
+
+  if (!selected) {
+    return null;
+  }
+
+  const grants = await getConnectionScopeGrants(selected.id);
+  return mapConnectionRecord(selected, grants);
 }
 
 export async function introspectConnection(

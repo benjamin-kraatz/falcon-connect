@@ -14,6 +14,11 @@ const connectionSchema = z.object({
   connectionId: z.string().min(1),
 });
 
+const recoverConnectionSchema = z.object({
+  falconSubjectId: z.string().min(1),
+  organizationId: z.string().min(1),
+});
+
 const diagnosticsSchema = z.object({
   connectionId: z.string().min(1).nullable().optional(),
   latestIntentToken: z.string().min(1).nullable().optional(),
@@ -39,6 +44,16 @@ export const issueConnectionTokenAction = createServerFn({ method: "POST" })
     return sourceClient.issueConnectionAccessToken({
       connectionId: data.connectionId,
       expiresInSeconds: 300,
+    });
+  });
+
+export const recoverConnectionAction = createServerFn({ method: "POST" })
+  .inputValidator(recoverConnectionSchema)
+  .handler(async ({ data }) => {
+    return sourceClient.findConnection({
+      targetAppId: sourceDemoConfig.targetAppId,
+      falconSubjectId: data.falconSubjectId,
+      organizationId: data.organizationId,
     });
   });
 

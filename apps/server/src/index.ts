@@ -8,6 +8,7 @@ import {
   getFalconJwks,
   introspectConnection,
   issueConnectionAccessToken,
+  findConnection,
   resolveInstallIntent,
 } from "@falcon/api/connect";
 import { appRouter } from "@falcon/api/routers/index";
@@ -147,6 +148,12 @@ app.post("/v1/connections/access-token", async (c) => {
   const payload = parseSignedJsonBody(c);
 
   return c.json(await issueConnectionAccessToken(c.get("trustedAppAuth"), payload));
+});
+
+app.post("/v1/connections/find", async (c) => {
+  const payload = parseSignedJsonBody(c);
+
+  return c.json(await findConnection(c.get("trustedAppAuth"), payload));
 });
 
 app.post("/v1/connections/introspect", async (c) => {
