@@ -1,0 +1,70 @@
+---
+title: Source App Integration
+description: How a source app starts a connection and later calls the target app.
+icon: Send
+---
+
+# Source App Integration
+
+## Prerequisites
+
+Before integrating, Falcon staff must insert the trusted app record with:
+
+- app id
+- slug and display name
+- connect request URL
+- data API base URL
+- allowed callback URLs
+- active public key
+
+Your application keeps the matching private JWK locally.
+
+## 1. Create an Install Intent
+
+The source app signs a request to Falcon and submits:
+
+- `targetAppId`
+- `falconSubjectId`
+- `organizationId`
+- requested scopes
+- `sourceReturnUrl`
+
+Falcon validates the request and returns:
+
+- `intentId`
+- signed `intentToken`
+- `connectUrl`
+- `expiresAt`
+
+Redirect the user to `connectUrl`.
+
+## 2. Handle the Callback
+
+After the target app approves or denies the request, Falcon produces a callback URL for the source app.
+
+Read these query parameters:
+
+- `falcon_connect_status`
+- `falcon_connect_connection_id`
+- `falcon_connect_intent_id`
+- `falcon_connect_reason`
+
+If the request was approved, persist the returned `connectionId` in the source app.
+
+## 3. Mint a Runtime Connection Token
+
+When App A needs to call App B:
+
+1. call Falcon with the connection id
+2. receive a short-lived Falcon-signed JWT
+3. call App B directly and include the JWT
+
+The runtime JWT contains:
+
+- connection id
+- source app id
+- target app id
+- `falconSubjectId`
+- `organizationId`
+- granted scopes
+- issuer, audience, expiry, and key id

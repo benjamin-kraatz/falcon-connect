@@ -1,0 +1,50 @@
+---
+title: Runtime Verification
+description: Local JWT verification and Falcon introspection fallback.
+icon: KeyRound
+---
+
+# Runtime Verification
+
+## Local Verification
+
+For a normal request from App A to App B:
+
+1. App A mints a short-lived Falcon connection token.
+2. App A calls App B directly.
+3. App B verifies the JWT locally against Falcon JWKS.
+
+The JWT audience is the target app id, so the token is bound to the intended receiver.
+
+## Introspection Fallback
+
+App B should call Falcon introspection when:
+
+- the token is expired
+- Falcon signing keys may be stale locally
+- the app wants an authoritative pause or revoke check
+
+Falcon introspection returns:
+
+- whether the connection is active
+- the current connection state
+- the currently granted scope set
+
+## Why Hybrid Verification
+
+Local verification keeps the hot path fast and removes a Falcon round-trip for every partner request.
+
+Introspection keeps Falcon authoritative for:
+
+- pause
+- revoke
+- stale local key caches
+- reconnect and scope changes
+
+## System Scopes
+
+V1 starts with:
+
+- `read:app-info`
+
+System scopes are persisted with the connection and are always granted.

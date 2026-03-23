@@ -1,47 +1,66 @@
 # FALCON Connect
 
 > [!IMPORTANT]
-> This project is still in early alpha. The features and functionality might change significantly during the development process, even during minor releases.
+> FALCON Connect is in early alpha. The protocol, schema, and SDK will keep changing while the platform is being shaped.
 
-## What is FALCON Connect?
+## Overview
 
-> This explanation might be incomplete and/or might be extended in the future.
+FALCON Connect is a registry and verification control plane for app-to-app integrations.
 
-With FALCON Connect, app developers (during the early alpha, only FALCON-supported applications that the team behind FALCON controls) can implement service integration.
-That means, when two distinct applications want to exchange data, they can use FALCON Connect to "install" the other apps.
+It does **not** proxy or transport business data. Instead, it handles:
 
-**Important**: FALCON Connect _does not_ manage the actual data exchange. It only provides the infrastructure to enable the exchange.
+- trusted app registration
+- install intent creation
+- target-app consent state
+- directional connection records
+- Falcon-signed runtime verification tokens
+- fallback introspection for pause and revoke checks
+
+The result is that App A can connect to App B once, then call App B directly with a Falcon-issued connection token instead of reimplementing partner verification flows in every application pair.
+
+## V1 Model
+
+- trusted partner apps are inserted manually by Falcon staff
+- connections are directional: `App A -> App B`
+- connection scope is `falconSubjectId + organizationId`
+- the target app hosts the login and consent UI
+- runtime verification is hybrid:
+  - local JWT verification for the normal path
+  - Falcon introspection for expiry, revocation, or stale-state fallback
 
 ## Example Flow
 
-This flow shows how FALCON Connect conceptually works. Assume that user in application A wants to enable the app to read data from application B.
+1. App A creates an install intent in Falcon Connect.
+2. Falcon validates the request and returns a signed install intent token plus the target app connect URL.
+3. The user is redirected to App B.
+4. App B resolves the install intent with Falcon, authenticates the user locally, and renders consent.
+5. App B approves or denies the request and Falcon stores the directional connection plus granted scopes.
+6. Falcon returns a callback URL for App A.
+7. App A can now mint short-lived connection access tokens and call App B directly.
 
-1. User goes to app A's settings page and sees "Connect App B"
-2. They click on "Connect"
-3. They are redirected to app B at a specific URL (e.g. https://app-b.com/falcon/connect-request?app-a=https://app-a.com&app-a-pubkey=...)
-4. Next steps depends on the sign in state:
-   - If the user is not signed in, they are redirected to the sign in page. After signing in, they go to the next step.
-   - If the user is signed in, they go to the next step directly.
-5. User confirms the installation of this integration (or denies it). They see the capabilities/scopes that app A has requested from app B
-6. They are redirected to app A's settings page
-7. They see that the connection is established (or not)
+## Monorepo Layout
 
-This is only a high level flow, and might work a little different in some small edge cases. Also, it might be extended in the future.
-
-Now, the apps can communicate with each other. During the installation and connection process, app B told app A the base URL of the endpoint to communicate with.
-This base URL is completely independent from the FALCON Connect infrastructure. It is only a convenience for exchanging basic information between the apps.
-
-### Gotcha
-
-In very, very simple terms, this is very similar to how OAuth works. But with a few key differences:
-
-OAuth is a standard for authentication, while FALCON Connect is a standard for service integration. The auth client is pretty analogous to the source application, and the Identity Provider is somewhat analogous to the target application.
+```text
+connect/
+├── apps/
+│   ├── dashboard/   # Internal Falcon ops console
+│   ├── docs/        # Partner integration documentation
+│   └── server/      # Hono server for Falcon Connect APIs
+├── packages/
+│   ├── api/         # Business logic and oRPC ops routes
+│   ├── auth/        # Dashboard authentication
+│   ├── db/          # Drizzle schema and database access
+│   ├── env/         # Typed runtime bindings
+│   ├── infra/       # Alchemy / Cloudflare deployment
+│   ├── sdk/         # TypeScript integration SDK
+│   └── ui/          # Shared dashboard UI components
+```
 
 ## SDK
 
-To implement the FALCON Connect infrastructure in your application, you can use the [FALCON Connect SDK](./packages/sdk/README.md).
+The public TypeScript integration surface lives in [packages/sdk/README.md](./packages/sdk/README.md).
 
----
+## Running Locally
 
 ## Stack
 
@@ -64,64 +83,29 @@ This project was created with [Better-T-Stack](https://github.com/AmanVarshney01
 
 ## Getting Started
 
-First, install the dependencies:
-
 ```bash
 bun install
 ```
 
-## Database Setup
-
-This project uses SQLite with Drizzle ORM.
-
-1. Start the local SQLite database (optional):
+1. Start the local database if needed:
 
 ```bash
 bun run db:local
 ```
 
-2. Update your `.env` file in the `apps/server` directory with the appropriate connection details if needed.
-
-3. Apply the schema to your database:
+2. Apply the schema:
 
 ```bash
 bun run db:push
 ```
 
-Then, run the development server:
+3. Run the apps:
 
 ```bash
 bun run dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
-The API is running at [http://localhost:3000](http://localhost:3000).
-
-## UI Customization
-
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
-
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
-
-### Add more shared components
-
-Run this from the project root to add more primitives to the shared UI package:
-
-```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
-```
-
-Import shared components like this:
-
-```tsx
-import { Button } from "@falcon/ui/components/button";
-```
-
-### Add app-specific blocks
-
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
+The internal dashboard runs on [http://localhost:3001](http://localhost:3001) and the server runs on [http://localhost:3000](http://localhost:3000).
 
 ## Deployment (Cloudflare via Alchemy)
 
@@ -135,25 +119,11 @@ For more details, see the guide on [Deploying to Cloudflare with Alchemy](https:
 
 - Format and lint fix: `bun run check`
 
-## Project Structure
-
-```
-connect/
-├── apps/
-│   ├── web/         # Frontend application (React + TanStack Start)
-│   └── server/      # Backend API (Hono, ORPC)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-│   ├── api/         # API layer / business logic
-│   ├── auth/        # Authentication configuration & logic
-│   └── db/          # Database schema & queries
-```
-
 ## Available Scripts
 
 - `bun run dev`: Start all applications in development mode
 - `bun run build`: Build all applications
-- `bun run dev:web`: Start only the web application
+- `bun run dev:web`: Start only the dashboard application
 - `bun run dev:server`: Start only the server
 - `bun run check-types`: Check TypeScript types across all apps
 - `bun run db:push`: Push schema changes to database

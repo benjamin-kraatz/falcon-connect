@@ -1,10 +1,51 @@
 ---
-title: Hello World
-description: Your favourite docs framework.
-icon: Rocket
+title: FALCON Connect
+description: Control plane documentation for trusted app-to-app integrations.
+icon: Shield
 ---
 
-Hey there! Fumadocs is the docs framework that also works on Tanstack Start!
+# FALCON Connect
+
+FALCON Connect is a registry and verification control plane for partner app integrations.
+
+It does not proxy or transport business data. Instead, it manages the lifecycle that lets one trusted app call another app directly with a Falcon-issued verification token.
+
+## V1 Guarantees
+
+- trusted apps are inserted manually by Falcon staff
+- connections are directional: `App A -> App B`
+- connection state is scoped to `falconSubjectId + organizationId`
+- the target app owns the end-user consent page
+- runtime verification is hybrid:
+  - local JWT verification against Falcon JWKS
+  - Falcon introspection fallback for expiry or state rechecks
+
+## Main Components
+
+| Component     | Responsibility                                                        |
+| ------------- | --------------------------------------------------------------------- |
+| Falcon server | Registry, install intents, connections, token issuance, introspection |
+| Source app    | Creates install intents and later mints connection access tokens      |
+| Target app    | Resolves install intents, hosts consent, verifies runtime tokens      |
+| Dashboard     | Internal Falcon ops console                                           |
+| SDK           | Shared TypeScript client and crypto helpers                           |
+
+## Typical Flow
+
+1. The source app creates an install intent in Falcon.
+2. Falcon validates the request and returns a signed install intent token.
+3. The user is redirected to the target app.
+4. The target app resolves the intent, authenticates the user locally, and renders consent.
+5. The target app approves or denies the request.
+6. Falcon creates or updates the directional connection.
+7. The source app later mints a short-lived runtime token to call the target app directly.
+
+## Next
+
+- Read [Architecture](./architecture)
+- Start with [Source App Integration](./source-app-integration)
+- Continue with [Target App Integration](./target-app-integration)
+- Review [Runtime Verification](./runtime-verification)
 
 ## Heading
 

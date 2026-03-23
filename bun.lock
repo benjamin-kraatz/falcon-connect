@@ -129,11 +129,14 @@
         "@falcon/auth": "workspace:*",
         "@falcon/db": "workspace:*",
         "@falcon/env": "workspace:*",
+        "@falcon/sdk": "workspace:*",
         "@orpc/client": "catalog:",
         "@orpc/openapi": "catalog:",
         "@orpc/server": "catalog:",
         "@orpc/zod": "catalog:",
         "dotenv": "catalog:",
+        "drizzle-orm": "^0.45.1",
+        "jose": "^6.2.2",
         "zod": "catalog:",
       },
       "devDependencies": {
@@ -205,12 +208,13 @@
     },
     "packages/sdk": {
       "name": "@falcon/sdk",
+      "dependencies": {
+        "jose": "^6.2.2",
+        "zod": "catalog:",
+      },
       "devDependencies": {
         "@falcon/config": "workspace:*",
         "typescript": "^5.9.3",
-      },
-      "peerDependencies": {
-        "zod": "^4.1.13",
       },
     },
     "packages/ui": {

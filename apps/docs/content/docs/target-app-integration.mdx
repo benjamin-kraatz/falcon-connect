@@ -1,0 +1,58 @@
+---
+title: Target App Integration
+description: How a target app resolves install intents and hosts the consent UX.
+icon: Handshake
+---
+
+# Target App Integration
+
+## 1. Receive the Redirect
+
+The user lands on the target app at the configured connect request URL.
+
+Falcon appends a signed `falcon_connect_intent` token to that URL.
+
+## 2. Resolve the Install Intent
+
+The target app signs a request to Falcon and resolves the install intent token.
+
+Falcon returns:
+
+- source app metadata
+- target app metadata
+- `falconSubjectId`
+- `organizationId`
+- requested scopes
+- required and system flags for each scope
+- source return URL
+
+## 3. Authenticate the User Locally
+
+Falcon does not log the user into the target app.
+
+The target app must enforce its own auth/session requirements before showing consent.
+
+## 4. Render Consent
+
+Consent UI rules:
+
+- required scopes are locked on
+- system scopes are locked on
+- optional scopes may be toggled off
+
+The SDK exposes helpers to build this scope selection model, but the target app owns the final UI.
+
+## 5. Submit the Decision
+
+The target app sends one of:
+
+- approval with the granted scope set
+- denial with an optional reason
+
+Falcon then:
+
+- creates or updates the directional connection
+- persists the granted scopes
+- returns a callback URL for the source app
+
+Redirect the user to that callback URL.
