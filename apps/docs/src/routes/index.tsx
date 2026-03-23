@@ -16,7 +16,10 @@ function Home() {
             Partner Handbook
           </p>
           <h1 className="text-4xl font-medium tracking-tight">
-            Build directional app integrations on top of FALCON Connect
+            Directional app integrations with{" "}
+            <span className="bg-linear-to-r from-fd-primary to-fuchsia-500 bg-clip-text text-transparent">
+              FALCON Connect
+            </span>
           </h1>
           <p className="text-base text-fd-muted-foreground">
             These docs explain trusted app registration, signed install intents, target-app consent,
