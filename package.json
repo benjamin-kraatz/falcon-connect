@@ -29,6 +29,13 @@
       "@orpc/client": "^1.12.2",
       "@types/react": "^19.2.10",
       "@types/react-dom": "^19.2.3"
+    },
+    "catalogs": {
+      "effect": {
+        "effect": "^3.21.0",
+        "@effect/platform": "^0.96.0",
+        "@effect/language-service": "^0.82.0"
+      }
     }
   },
   "type": "module",
@@ -58,15 +65,15 @@
     "prepare": "effect-language-service patch"
   },
   "dependencies": {
-    "@effect/platform": "^0.96.0",
+    "@effect/platform": "catalog:effect",
     "@falcon/env": "workspace:*",
     "dotenv": "catalog:",
-    "effect": "^3.21.0",
+    "effect": "catalog:effect",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
-    "@effect/language-service": "^0.82.0",
+    "@effect/language-service": "catalog:effect",
     "@falcon/config": "workspace:*",
     "@types/node": "catalog:",
     "lefthook": "^2.0.13",

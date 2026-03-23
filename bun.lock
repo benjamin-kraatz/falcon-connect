@@ -5,15 +5,15 @@
     "": {
       "name": "connect",
       "dependencies": {
-        "@effect/platform": "^0.96.0",
+        "@effect/platform": "catalog:effect",
         "@falcon/env": "workspace:*",
         "dotenv": "catalog:",
-        "effect": "^3.21.0",
+        "effect": "catalog:effect",
         "zod": "catalog:",
       },
       "devDependencies": {
         "@cloudflare/workers-types": "catalog:",
-        "@effect/language-service": "^0.82.0",
+        "@effect/language-service": "catalog:effect",
         "@falcon/config": "workspace:*",
         "@types/node": "catalog:",
         "lefthook": "^2.0.13",
@@ -75,7 +75,6 @@
       "name": "@falcon/connect-demo-01",
       "dependencies": {
         "@falcon/sdk": "workspace:*",
-        "@falcon/ui": "workspace:*",
         "@tailwindcss/vite": "^4.1.18",
         "@tanstack/react-form": "^1.28.0",
         "@tanstack/react-query": "^5.80.6",
@@ -94,7 +93,6 @@
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@falcon/config": "workspace:*",
         "@tanstack/react-query-devtools": "^5.91.1",
         "@tanstack/react-router-devtools": "^1.141.1",
         "@testing-library/dom": "^10.4.0",
@@ -112,7 +110,6 @@
       "name": "@falcon/connect-demo-02",
       "dependencies": {
         "@falcon/sdk": "workspace:*",
-        "@falcon/ui": "workspace:*",
         "@tailwindcss/vite": "^4.1.18",
         "@tanstack/react-form": "^1.28.0",
         "@tanstack/react-query": "^5.80.6",
@@ -131,7 +128,6 @@
         "zod": "catalog:",
       },
       "devDependencies": {
-        "@falcon/config": "workspace:*",
         "@tanstack/react-query-devtools": "^5.91.1",
         "@tanstack/react-router-devtools": "^1.141.1",
         "@testing-library/dom": "^10.4.0",
@@ -282,13 +278,13 @@
     },
     "packages/sdk": {
       "name": "@falcon/sdk",
-      "dependencies": {
-        "jose": "^6.2.2",
-        "zod": "catalog:",
-      },
       "devDependencies": {
         "@falcon/config": "workspace:*",
         "typescript": "^5.9.3",
+      },
+      "peerDependencies": {
+        "jose": "^6.2.2",
+        "zod": "^4.13.1",
       },
     },
     "packages/ui": {
@@ -339,6 +335,13 @@
     "tailwindcss": "^4.1.18",
     "wrangler": "^4.54.0",
     "zod": "^4.1.13",
+  },
+  "catalogs": {
+    "effect": {
+      "@effect/language-service": "^0.82.0",
+      "@effect/platform": "^0.96.0",
+      "effect": "^3.21.0",
+    },
   },
   "packages": {
     "@antfu/ni": ["@antfu/ni@25.0.0", "", { "dependencies": { "ansis": "^4.0.0", "fzf": "^0.5.2", "package-manager-detector": "^1.3.0", "tinyexec": "^1.0.1" }, "bin": { "na": "bin/na.mjs", "ni": "bin/ni.mjs", "nr": "bin/nr.mjs", "nci": "bin/nci.mjs", "nlx": "bin/nlx.mjs", "nun": "bin/nun.mjs", "nup": "bin/nup.mjs" } }, "sha512-9q/yCljni37pkMr4sPrI3G4jqdIk074+iukc5aFJl7kmDCCsiJrbZ6zKxnES1Gwg+i9RcDZwvktl23puGslmvA=="],

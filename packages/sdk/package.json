@@ -10,13 +10,12 @@
     }
   },
   "scripts": {},
-  "dependencies": {
-    "jose": "^6.2.2",
-    "zod": "catalog:"
-  },
   "devDependencies": {
     "@falcon/config": "workspace:*",
     "typescript": "^5.9.3"
   },
-  "peerDependencies": {}
+  "peerDependencies": {
+    "jose": "^6.2.2",
+    "zod": "^4.13.1"
+  }
 }
