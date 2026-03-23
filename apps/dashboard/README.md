@@ -29,6 +29,12 @@ This is only a high level flow, and might work a little different in some small 
 Now, the apps can communicate with each other. During the installation and connection process, app B told app A the base URL of the endpoint to communicate with.
 This base URL is completely independent from the FALCON Connect infrastructure. It is only a convenience for exchanging basic information between the apps.
 
+### Gotcha
+
+In very, very simple terms, this is very similar to how OAuth works. But with a few key differences:
+
+OAuth is a standard for authentication, while FALCON Connect is a standard for service integration. The auth client is pretty analogous to the source application, and the Identity Provider is somewhat analogous to the target application.
+
 ---
 
 This is a Tanstack Start application generated with
