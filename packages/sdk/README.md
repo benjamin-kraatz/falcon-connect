@@ -31,4 +31,4 @@ This is the TypeScript SDK for integrating partner applications with FALCON Conn
 
 V1 starts with `read:app-info` as a non-disableable Falcon system scope. The SDK treats system and required scopes as locked during consent selection.
 
-See the docs app for end-to-end integration details.
+See the [docs site](https://falcon-connect-docs.vercel.app/) for end-to-end integration details.
