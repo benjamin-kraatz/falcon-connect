@@ -1,0 +1,174 @@
+---
+title: Initial Plan (Codex)
+description: Initial plan for the FALCON Connect docs
+---
+
+# Implement Falcon Connect V1
+
+## Summary
+
+- Build Falcon Connect as a registry, install-intent issuer, consent-state manager, and verification service for directional app-to-app connections.
+- V1 targets trusted partner apps, but onboarding is private: Falcon staff insert apps manually into the database.
+- Connections are directional and scoped to `falconSubjectId + organizationId`, with consent UI hosted by the target app via the TypeScript SDK.
+- Falcon does not proxy business data. Apps still call each other directly on their own domains.
+- Runtime verification uses short-lived Falcon-signed tokens for local verification, with Falcon introspection as fallback/recheck for expiry, revocation, or stale status.
+
+## Implementation Changes
+
+### 1. Foundation and repo alignment
+
+- Fix template leftovers first so the implementation sits on a stable base:
+  - align infra and readme references from `apps/web` to `apps/dashboard`
+  - replace placeholder docs content with Falcon Connect architecture and integration docs
+  - keep `apps/dashboard` as an internal ops console, not the primary end-user connect flow
+- Define the canonical Falcon Connect protocol in shared TypeScript types before building handlers:
+  - app manifest
+  - scope descriptors
+  - install intent
+  - connection
+  - runtime access token claims
+  - verification/introspection responses
+
+### 2. Core data model in `packages/db`
+
+Add Falcon-specific tables alongside the existing auth schema:
+
+- `trusted_app`
+  - app id, slug, display name, status
+  - connect request URL
+  - data API base URL
+  - redirect allowlist
+  - support metadata
+- `trusted_app_key`
+  - app id, key id, public key, algorithm, status, created/rotated timestamps
+- `trusted_app_scope`
+  - app id, scope name, display name, description
+  - `requiredByDefault`
+  - `systemScope` flag for non-disableable Falcon scopes like `read:app-info`
+- `install_intent`
+  - source app id, target app id
+  - `falconSubjectId`, `organizationId`
+  - requested scopes
+  - source return URL
+  - status, expiry, nonce/audit fields
+- `connection`
+  - connection id
+  - source app id, target app id
+  - `falconSubjectId`, `organizationId`
+  - status: pending, active, paused, revoked, denied
+  - target data API base URL snapshot
+  - timestamps, revocation reason
+- `connection_scope_grant`
+  - connection id, scope name, required/system flags, granted boolean
+- `connection_audit_event`
+  - lifecycle and verification events for support/debugging
+
+Defaults:
+
+- enforce uniqueness for one active directional connection per `(source app, target app, falcon subject, organization)`
+- keep connections directional only
+- preserve endpoint/base URL snapshots on the connection for audit and stability
+
+### 3. Server behavior in `apps/server` and `packages/api`
+
+Implement Falcon-specific RPC/API modules around four responsibilities:
+
+- App authentication
+  - trusted apps authenticate to Falcon with public/private key signatures
+  - every app-to-Falcon call includes app id, key id, timestamp/nonce, and request signature
+- Install flow
+  - source app creates install intent in Falcon first
+  - Falcon validates source app, target app, redirect URL, requested scopes, subject/org, and expiry
+  - Falcon returns a signed intent reference and target connect URL payload
+  - target app resolves the intent from Falcon, authenticates its user locally, renders consent, and submits approve/deny with the final granted scope set
+  - Falcon creates the directional connection and redirects back to the source app with success/failure state
+- Runtime verification
+  - source app exchanges a connection id for a short-lived Falcon-signed connection access token
+  - token claims include connection id, source app id, target app id, `falconSubjectId`, `organizationId`, granted scopes, expiry, issuer, and key id
+  - target app verifies the token locally against Falcon signing keys
+  - if token verification fails due to expiry/key freshness/stale status, target app calls Falcon introspection before rejecting
+  - Falcon introspection is authoritative for pause/revoke state
+- Ops/admin APIs
+  - list apps, connections, intents, and audit events
+  - pause/revoke/reactivate connections
+  - inspect granted scopes and verification history
+
+### 4. SDK in `packages/sdk`
+
+Ship one TypeScript SDK with two clear integration surfaces:
+
+- Source app surface
+  - create install intent
+  - build redirect/connect URL
+  - handle post-consent callback
+  - request/refresh runtime connection token
+- Target app surface
+  - resolve install intent
+  - render consent model from Falcon data
+  - submit approve/deny with optional-scope toggles
+  - verify runtime connection token in middleware/helpers
+  - introspect with Falcon on fallback
+- Shared primitives/types
+  - `ScopeDescriptor` with `required` and `system`
+  - `ConnectRequestPayload`
+  - `InstallIntentStatus`
+  - `ConnectionStatus`
+  - `ConnectionAccessTokenClaims`
+- Provide optional starter UI primitives for the target app consent screen, but keep them composable and not required
+
+### 5. Dashboard and docs
+
+- Use `apps/dashboard` as an internal ops console for:
+  - trusted app lookup
+  - connection search/filter
+  - intent inspection
+  - pause/revoke/support workflows
+- Use `apps/docs` for partner integration docs:
+  - app registration prerequisites
+  - keypair setup
+  - source app integration
+  - target app integration
+  - runtime verification contract
+  - default Falcon system scopes
+
+## Public APIs / Interfaces
+
+- Falcon app registration model:
+  - registered by Falcon staff in DB, not self-serve in v1
+- Required trusted app metadata:
+  - app id
+  - public key(s)
+  - connect request URL
+  - data API base URL
+  - allowed return URLs
+  - declared scopes
+- Mandatory system scopes:
+  - start with `read:app-info`
+  - store as non-disableable system scopes so more can be added later without changing the consent model
+- Consent rules:
+  - required scopes are locked on
+  - optional scopes are toggleable
+  - denied optional scopes are persisted per connection
+- Runtime request contract:
+  - App A calls App B directly with Falcon-signed connection token
+  - App B verifies locally first, then introspects Falcon when local verification is insufficient
+
+## Test Plan
+
+- Trusted app auth rejects unknown app ids, wrong key ids, bad signatures, and replayed nonces
+- Install intent creation rejects untrusted apps, invalid target apps, invalid return URLs, and undeclared scopes
+- Target consent screen only allows optional scopes to be deselected; required/system scopes stay locked
+- Approving a request creates exactly one active directional connection with the granted scope set
+- Denying or expiring an install intent does not create a connection and returns an error state to the source app
+- Directionality is enforced: `A -> B` does not authorize `B -> A`
+- Runtime token local verification succeeds for valid tokens and rejects wrong audience, wrong target app, org mismatch, or subject mismatch
+- Introspection fallback rejects paused/revoked connections even if an older token still exists
+- Source app cannot request scopes that were not granted on the connection
+- Dashboard ops actions update state and are reflected in introspection results and audit history
+
+## Assumptions
+
+- V1 uses a canonical Falcon subject and organization identifier even though Falcon Auth is not ready yet.
+- Until Falcon Auth exists, trusted apps provide the canonical subject/org claims in signed Falcon requests; schema and token claims should be shaped so Falcon Auth can become the issuer later without breaking the SDK.
+- Partner apps host their own login and consent route; Falcon only provides protocol state, verification, and helper UI primitives.
+- Falcon staff manage trusted app entries directly in the database for v1; no public onboarding workflow is included in this implementation.
