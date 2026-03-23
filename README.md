@@ -97,6 +97,13 @@ bun run dev:demo-02
 
 The local Falcon server runs at [http://localhost:3000](http://localhost:3000) and automatically bootstraps the demo trusted apps, keys, callback URL, and target scopes.
 
+For manual partner or Falcon key generation, use:
+
+```bash
+bun run gen:jwk -- --mode trusted-app --key-id demo-app-key-1
+bun run gen:jwk -- --mode falcon --key-id falcon-connect-signing-key-1
+```
+
 ## Stack
 
 This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Start, Hono, ORPC, and more.

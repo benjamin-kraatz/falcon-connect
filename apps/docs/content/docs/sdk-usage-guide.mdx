@@ -35,6 +35,14 @@ The SDK expects that your application already has:
 
 In most applications you will load those values from environment variables or your application config layer.
 
+If you need a fresh Ed25519 JWK pair locally, run:
+
+```bash
+bun run gen:jwk -- --mode trusted-app --key-id orders-key-1
+```
+
+That helper prints a private JWK for `FALCON_PRIVATE_JWK` and the public JWK you should register in Falcon.
+
 ## Basic Configuration
 
 The smallest useful setup is to create one SDK client instance on the source side or the target side and reuse it rather than re-creating it for every request.

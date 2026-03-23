@@ -86,6 +86,26 @@ The current implementation expects JWK material. In practice that means FALCON s
 
 The FALCON server itself also has its own signing JWK for runtime JWT issuance. That key is unrelated to partner app request signing. Partner request signatures prove that your app is allowed to talk to FALCON. FALCON-issued runtime JWTs prove to a target app that a connection is valid.
 
+## Generating JWKs Locally
+
+The repo includes a helper for generating Ed25519 JWK pairs:
+
+```bash
+# Generate a partner app key pair
+bun run gen:jwk -- --mode trusted-app --key-id orders-key-1
+
+# Generate the Falcon runtime-signing key pair
+bun run gen:jwk -- --mode falcon --key-id falcon-connect-signing-key-1
+```
+
+The script prints:
+
+- the private JWK JSON for your environment variable
+- the public JWK JSON to register in Falcon
+- suggested env var names such as `FALCON_PRIVATE_JWK` or `FALCON_CONNECT_SIGNING_PRIVATE_JWK`
+
+For source or target partner apps, keep the private JWK on your side and register only the public JWK with Falcon.
+
 ## Scope Registration
 
 If your app can act as a target app, FALCON also needs to know which scopes your app exposes.
