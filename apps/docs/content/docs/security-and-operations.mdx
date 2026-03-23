@@ -6,25 +6,25 @@ icon: ShieldCheck
 
 # Security and Operations
 
-Falcon Connect is an infrastructure product, which means the quality of the integration depends as much on operational correctness as it does on protocol correctness.
+FALCON Connect is an infrastructure product, which means the quality of the integration depends as much on operational correctness as it does on protocol correctness.
 
 This page explains the practical security and operations model behind the current implementation.
 
 ## Replay Protection
 
-Signed partner requests include both a timestamp and a nonce. The timestamp limits how long a captured request could remain valid. The nonce lets Falcon detect replay even inside that acceptable clock window.
+Signed partner requests include both a timestamp and a nonce. The timestamp limits how long a captured request could remain valid. The nonce lets FALCON detect replay even inside that acceptable clock window.
 
-That means a request can fail even when the signature itself is correct. If the same nonce is seen twice for the same app, Falcon rejects it. This is expected behavior and should not be treated as a random transient error.
+That means a request can fail even when the signature itself is correct. If the same nonce is seen twice for the same app, FALCON rejects it. This is expected behavior and should not be treated as a random transient error.
 
 ## Key Separation
 
 There are two distinct signing domains in the system.
 
-Partner apps use their own private keys to authenticate requests **to Falcon**.
+Partner apps use their own private keys to authenticate requests **to FALCON**.
 
-Falcon uses its own private signing key to issue runtime JWTs **to partner apps**.
+FALCON uses its own private signing key to issue runtime JWTs **to partner apps**.
 
-Do not mix those concepts. A partner app's request-signing key is not the same thing as Falcon's runtime-token signing key, and rotating one should not require rotating the other.
+Do not mix those concepts. A partner app's request-signing key is not the same thing as FALCON's runtime-token signing key, and rotating one should not require rotating the other.
 
 ## Paused and Revoked Connections
 
@@ -36,17 +36,17 @@ From a target app's perspective, both states should cause runtime verification t
 
 ## Dashboard Role
 
-The Falcon dashboard in v1 is an internal operations console. It is not the end-user portal for managing integrations.
+The FALCON dashboard in v1 is an internal operations console. It is not the end-user portal for managing integrations.
 
 Operators use it to inspect trusted apps, inspect install intents, inspect active, paused, and revoked connections, review audit history, and pause, revoke, or reactivate connections.
 
-That design keeps partner UX inside partner apps while giving Falcon staff a single place to reason about platform state.
+That design keeps partner UX inside partner apps while giving FALCON staff a single place to reason about platform state.
 
 ## Why Audit Events Matter
 
 In early integration systems, teams often underinvest in auditability because they are focused on getting the happy path to work. That becomes painful very quickly once real partner traffic starts flowing.
 
-Falcon audit events exist so operators can answer questions such as:
+FALCON audit events exist so operators can answer questions such as:
 
 - when was this install intent created?
 - who denied the request?
@@ -58,13 +58,13 @@ Without that history, support quickly turns into guesswork.
 
 ## Operational Advice for Partners
 
-Treat Falcon state changes as normal distributed-system events.
+Treat FALCON state changes as normal distributed-system events.
 
 Your integration should expect that:
 
 - a connection may become paused after it was previously active
 - a connection may be revoked between two runtime calls
-- the target app may need to introspect Falcon because local verification is stale
+- the target app may need to introspect FALCON because local verification is stale
 - a user may reconnect the same app pair and change optional scopes
 
 If your implementation assumes a connection is immutable once created, you will eventually hit incorrect behavior.

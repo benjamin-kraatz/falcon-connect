@@ -6,69 +6,69 @@ icon: Handshake
 
 # Target App Integration
 
-This page is written for the receiving side of the relationship. In Falcon Connect terminology, that is the target app.
+This page is written for the receiving side of the relationship. In FALCON Connect terminology, that is the target app.
 
 The target app has two responsibilities that are easy to mix together if you are not careful:
 
 1. at install time, it resolves the install intent and hosts the consent UX
-2. at runtime, it verifies Falcon-issued JWTs attached to direct requests from the source app
+2. at runtime, it verifies FALCON-issued JWTs attached to direct requests from the source app
 
 You should design those two responsibilities as separate parts of your integration.
 
 ## Receiving the Install Redirect
 
-Your app's registered connect request URL is where the user lands when the source app starts an installation flow. Falcon includes a signed `falcon_connect_intent` query parameter on that redirect.
+Your app's registered connect request URL is where the user lands when the source app starts an installation flow. FALCON includes a signed `falcon_connect_intent` query parameter on that redirect.
 
-At this point, your app knows only that someone is asking it to evaluate a Falcon Connect relationship. It does **not** yet know whether the user is authenticated in your application or whether the request should be approved.
+At this point, your app knows only that someone is asking it to evaluate a FALCON Connect relationship. It does **not** yet know whether the user is authenticated in your application or whether the request should be approved.
 
 ## Authenticating the User Locally
 
-The target app is fully responsible for local user authentication. Falcon does not sign the user into your system, and it does not supply a target-side session. If your application requires login before an installation can be approved, enforce that requirement before you move to the consent screen.
+The target app is fully responsible for local user authentication. FALCON does not sign the user into your system, and it does not supply a target-side session. If your application requires login before an installation can be approved, enforce that requirement before you move to the consent screen.
 
-This is one of the most important trust boundaries in the whole design. Falcon Connect can tell you which source app is requesting access and which `falconSubjectId` and `organizationId` the request is about. It cannot decide whether the currently present user in your app is actually allowed to approve that request.
+This is one of the most important trust boundaries in the whole design. FALCON Connect can tell you which source app is requesting access and which `falconSubjectId` and `organizationId` the request is about. It cannot decide whether the currently present user in your app is actually allowed to approve that request.
 
 ## Resolving the Install Intent
 
-Once your user is authenticated and authorized locally, your app signs a request back to Falcon to resolve the install token. Falcon returns:
+Once your user is authenticated and authorized locally, your app signs a request back to FALCON to resolve the install token. FALCON returns:
 
 - source app metadata
 - target app metadata
-- the Falcon subject and organization identifiers
+- the FALCON subject and organization identifiers
 - the requested scopes
 - which of those scopes are required
-- which scopes are Falcon system scopes
-- the callback URL Falcon will use for the source app
+- which scopes are FALCON system scopes
+- the callback URL FALCON will use for the source app
 
 From a product perspective, this is the data you need to explain the request to the user. From an engineering perspective, this is also the data that defines the legal decision surface. The target app should not invent its own scope model or guess what can be toggled.
 
 ## Rendering Consent
 
-The target app owns the consent screen. Falcon does not host it centrally in v1.
+The target app owns the consent screen. FALCON does not host it centrally in v1.
 
-That means the UX can and should follow your application's own design system. What Falcon expects is that your UX respects the returned scope semantics:
+That means the UX can and should follow your application's own design system. What FALCON expects is that your UX respects the returned scope semantics:
 
 - required scopes stay enabled
-- Falcon system scopes stay enabled
+- FALCON system scopes stay enabled
 - optional scopes may be turned off by the user
 
 The SDK includes helper functions to build a consent selection model, but the final experience is yours to shape.
 
 ## Submitting the Decision
 
-When the user makes a decision, your app calls Falcon again and submits either approval or denial.
+When the user makes a decision, your app calls FALCON again and submits either approval or denial.
 
-On approval, you send the final granted scope set. On denial, you may also send a denial reason. Falcon then updates the install intent and creates or updates the directional connection record.
+On approval, you send the final granted scope set. On denial, you may also send a denial reason. FALCON then updates the install intent and creates or updates the directional connection record.
 
 The response contains a callback URL for the source app. Your app should redirect the user to that URL when the flow is complete.
 
 ## Handling Existing Connections
 
-One subtle but important detail is that Falcon Connect keeps one directional connection per unique source app, target app, Falcon subject, and organization tuple. If a user reconnects the same pair, Falcon updates the existing directional relationship rather than creating an unlimited series of duplicate active rows.
+One subtle but important detail is that FALCON Connect keeps one directional connection per unique source app, target app, FALCON subject, and organization tuple. If a user reconnects the same pair, FALCON updates the existing directional relationship rather than creating an unlimited series of duplicate active rows.
 
 From the target app's point of view, this means an approval may behave like "create if missing, update if present." That is intentional. It allows users to revisit an integration, change optional scopes, or restore a paused relationship without creating ambiguous connection state.
 
 ## Runtime Responsibilities
 
-Once a connection exists, the target app's ongoing responsibility is no longer about consent. It is about verification. Whenever the source app calls you directly, your application needs to verify the Falcon JWT locally and, when appropriate, fall back to Falcon introspection.
+Once a connection exists, the target app's ongoing responsibility is no longer about consent. It is about verification. Whenever the source app calls you directly, your application needs to verify the FALCON JWT locally and, when appropriate, fall back to FALCON introspection.
 
 That runtime piece is covered in detail in [Runtime Verification](../runtime-verification).

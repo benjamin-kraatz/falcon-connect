@@ -6,7 +6,7 @@ icon: Code2
 
 # SDK Usage Guide
 
-This page is intentionally practical. It is not the conceptual overview of Falcon Connect and it is not the full protocol reference. It is the page you reach for when you want to wire the SDK into a real application and you want examples that match the current exported API.
+This page is intentionally practical. It is not the conceptual overview of FALCON Connect and it is not the full protocol reference. It is the page you reach for when you want to wire the SDK into a real application and you want examples that match the current exported API.
 
 The SDK is split into three parts:
 
@@ -26,10 +26,10 @@ bun add @falcon/sdk
 
 The SDK expects that your application already has:
 
-- a Falcon base URL
+- a FALCON base URL
 - a trusted app id
 - an active key id
-- a private JWK string or object for signing requests to Falcon
+- a private JWK string or object for signing requests to FALCON
 
 In most applications you will load those values from environment variables or your application config layer.
 
@@ -98,7 +98,7 @@ The returned object also includes `intentId`, `intentToken`, and `expiresAt`, wh
 
 ## Source App: Handle the Callback
 
-After the target app collects consent, Falcon returns a callback URL to the target app, which then redirects the user back to your source app. The source SDK includes a helper to parse that callback state.
+After the target app collects consent, FALCON returns a callback URL to the target app, which then redirects the user back to your source app. The source SDK includes a helper to parse that callback state.
 
 ```ts
 import { falconSource } from "./falcon";
@@ -127,7 +127,7 @@ A typical source app persists the `connectionId` in its own integration table as
 
 ## Source App: Mint a Runtime Connection Token
 
-Once the connection exists, the source app uses the stored `connectionId` to mint a short-lived Falcon token whenever it wants to call the target app.
+Once the connection exists, the source app uses the stored `connectionId` to mint a short-lived FALCON token whenever it wants to call the target app.
 
 ```ts
 import { falconSource } from "./falcon";
@@ -142,7 +142,7 @@ export async function getConnectionToken(connectionId: string) {
 }
 ```
 
-If you also want the decoded claim set Falcon used, the SDK already returns that in `result.claims`.
+If you also want the decoded claim set FALCON used, the SDK already returns that in `result.claims`.
 
 ```ts
 const result = await falconSource.issueConnectionAccessToken({
@@ -156,7 +156,7 @@ console.log(result.expiresAt);
 
 ## Source App: Call the Target App
 
-Falcon Connect does not define your business API shape, so the exact outbound request is up to you. A common pattern is to place the Falcon token in an authorization-style header.
+FALCON Connect does not define your business API shape, so the exact outbound request is up to you. A common pattern is to place the FALCON token in an authorization-style header.
 
 ```ts
 export async function fetchInvoices(connectionId: string) {
@@ -183,7 +183,7 @@ export async function fetchInvoices(connectionId: string) {
 
 ## Target App: Resolve the Install Intent
 
-When the user lands on the target app's connect route, the first Falcon-specific step is to extract the install token from the query string and resolve it.
+When the user lands on the target app's connect route, the first FALCON-specific step is to extract the install token from the query string and resolve it.
 
 ```ts
 import { falconTarget } from "./falcon";
@@ -224,7 +224,7 @@ export function buildConsentViewModel(
 }
 ```
 
-The important behavior is that `locked` already reflects Falcon's rules for required and system scopes.
+The important behavior is that `locked` already reflects FALCON's rules for required and system scopes.
 
 ## Target App: Approve the Install
 
@@ -273,7 +273,7 @@ The returned `redirectUrl` is what you should use to send the user back to the s
 
 ## Target App: Verify a Runtime Token
 
-At runtime, the target app usually extracts the Falcon JWT from the incoming request and verifies it through the target client.
+At runtime, the target app usually extracts the FALCON JWT from the incoming request and verifies it through the target client.
 
 ```ts
 import { falconTarget } from "./falcon";
@@ -288,7 +288,7 @@ export async function verifyIncomingFalconToken(token: string) {
 }
 ```
 
-The return shape depends on whether verification succeeded locally or had to fall back to Falcon introspection.
+The return shape depends on whether verification succeeded locally or had to fall back to FALCON introspection.
 
 If verification succeeds locally, the result contains the decoded JWT claims:
 
@@ -367,11 +367,11 @@ export async function requireFalconConnection(request: Request) {
 }
 ```
 
-## Lower-Level Helper: Manual Falcon Request Signing
+## Lower-Level Helper: Manual FALCON Request Signing
 
 Most applications should stay at the source and target client level. If you need lower-level control, the SDK also exports request-signing helpers.
 
-For example, to sign a Falcon request manually:
+For example, to sign a FALCON request manually:
 
 ```ts
 import { createFalconAppAuthHeaders } from "@falcon/sdk";
@@ -388,7 +388,7 @@ export async function buildSignedHeaders(body: unknown) {
 }
 ```
 
-This is useful if you want to integrate with a custom HTTP layer while still matching Falcon's expected signature format.
+This is useful if you want to integrate with a custom HTTP layer while still matching FALCON's expected signature format.
 
 ## Lower-Level Helper: Consent Selection Normalization
 
@@ -401,7 +401,7 @@ const selection = buildConsentSelection(intent, userSelectedScopeNames);
 const grantedScopes = normalizeGrantedScopes(intent, userSelectedScopeNames);
 ```
 
-`buildConsentSelection` is helpful when you need a richer UI model. `normalizeGrantedScopes` is helpful when you just need the final list of scope names to submit back to Falcon.
+`buildConsentSelection` is helpful when you need a richer UI model. `normalizeGrantedScopes` is helpful when you just need the final list of scope names to submit back to FALCON.
 
 ## A Complete Minimal Pair
 

@@ -20,7 +20,7 @@ function Home() {
           </h1>
           <p className="text-base text-fd-muted-foreground">
             These docs explain trusted app registration, signed install intents, target-app consent,
-            Falcon-issued runtime verification tokens, and fallback introspection.
+            FALCON-issued runtime verification tokens, and fallback introspection.
           </p>
         </div>
         <Link
