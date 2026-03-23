@@ -1,12 +1,16 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
+    "target": "ES2022",
+    "module": "preserve",
     "moduleResolution": "bundler",
-    "lib": ["ESNext"],
+    "moduleDetection": "force",
+    "lib": ["ES2022"],
     "verbatimModuleSyntax": true,
     "strict": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "incremental": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
@@ -17,6 +21,12 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+    "noUncheckedSideEffectImports": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ],
     "types": ["node", "@cloudflare/workers-types"]
   }
 }

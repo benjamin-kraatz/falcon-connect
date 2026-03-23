@@ -6,6 +6,7 @@
     "jsx": "react-jsx",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "moduleDetection": "force",
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "types": ["vite/client"],
     "isolatedModules": true,
@@ -13,7 +14,14 @@
     "skipLibCheck": true,
     "target": "ES2022",
     "allowJs": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
     "forceConsistentCasingInFileNames": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ],
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],

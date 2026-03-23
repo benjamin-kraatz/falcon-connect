@@ -12,6 +12,13 @@
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": true,
     "noEmit": true,
+    "exactOptionalPropertyTypes": true,
+    "moduleDetection": "force",
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ],
 
     /* Linting */
     "skipLibCheck": true,
@@ -20,6 +27,7 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
+    "noImplicitOverride": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
