@@ -46,6 +46,8 @@ connect/
 │   ├── dashboard/   # Internal Falcon ops console
 │   ├── docs/        # Partner integration documentation
 │   └── server/      # Hono server for Falcon Connect APIs
+│   ├── demo-01/     # Demo app for the source app
+│   └── demo-02/     # Demo app for the target app
 ├── packages/
 │   ├── api/         # Business logic and oRPC ops routes
 │   ├── auth/        # Dashboard authentication
@@ -61,6 +63,21 @@ connect/
 The public TypeScript integration surface lives in [packages/sdk/README.md](./packages/sdk/README.md).
 
 ## Running Locally
+
+### Running the Demo Apps
+
+```bash
+# Start a single demo app
+bun run dev:demo-01
+# and
+bun run dev:demo-02
+
+# or start both demo apps
+bun run dev:demo-all
+
+```
+
+> This will start the demo apps at [http://localhost:**4101**](http://localhost:4101) for the source app and [http://localhost:**4102**](http://localhost:4102) for the target app respectively.
 
 ## Stack
 
