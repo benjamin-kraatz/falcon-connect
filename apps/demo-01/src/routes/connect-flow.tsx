@@ -67,7 +67,7 @@ function RouteComponent() {
         </div>
       }
     >
-      <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <Panel
           title="Requested scopes"
           subtitle="The source app asks for the target capabilities it wants to use later at runtime. Falcon will automatically add any system scopes the target declared."

@@ -14,17 +14,17 @@ export function PageFrame({
   aside?: ReactNode;
 }>) {
   return (
-    <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-5 py-8">
-      <section className="grid gap-6 rounded-[2rem] border border-white/10 bg-[linear-gradient(135deg,rgba(195,140,74,0.16),transparent_38%),rgba(14,20,27,0.84)] p-6 shadow-[var(--shadow)] lg:grid-cols-[1.35fr_0.65fr]">
-        <div className="space-y-4">
-          <p className="text-[11px] uppercase tracking-[0.42em] text-[var(--accent)]">{eyebrow}</p>
-          <h2 className="max-w-3xl font-display text-4xl leading-tight text-[var(--ink)]">
-            {title}
-          </h2>
-          <p className="max-w-3xl text-base leading-7 text-[var(--muted)]">{intro}</p>
+    <main className="mx-auto flex w-full max-w-7xl min-w-0 flex-col gap-6 overflow-hidden px-5 py-8">
+      <div className="flex flex-col gap-6 border-b border-[var(--line)] pb-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-2xl space-y-2">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--accent)]">
+            {eyebrow}
+          </p>
+          <h2 className="text-2xl font-semibold leading-snug text-[var(--ink)]">{title}</h2>
+          <p className="text-sm leading-6 text-[var(--muted)]">{intro}</p>
         </div>
-        {aside ? <div>{aside}</div> : null}
-      </section>
+        {aside ? <div className="shrink-0 lg:w-72">{aside}</div> : null}
+      </div>
       {children}
     </main>
   );
@@ -41,15 +41,17 @@ export function Panel({
   actions?: ReactNode;
 }>) {
   return (
-    <section className="rounded-[1.5rem] border border-white/10 bg-[var(--panel)] p-5 shadow-[var(--shadow)]">
-      <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-        <div className="space-y-1">
-          <h3 className="font-display text-2xl text-[var(--ink)]">{title}</h3>
-          {subtitle ? <p className="text-sm leading-6 text-[var(--muted)]">{subtitle}</p> : null}
+    <section className="min-w-0 overflow-hidden rounded-md border border-[var(--line)] bg-[var(--panel)]">
+      <div className="flex items-center justify-between border-b border-[var(--line)] px-4 py-3">
+        <div>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--ink)]">
+            {title}
+          </h3>
+          {subtitle ? <p className="mt-0.5 text-xs text-[var(--muted)]">{subtitle}</p> : null}
         </div>
-        {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
+        {actions ? <div className="flex gap-2">{actions}</div> : null}
       </div>
-      {children}
+      <div className="p-4">{children}</div>
     </section>
   );
 }
@@ -64,10 +66,12 @@ export function MetricCard({
   detail: string;
 }) {
   return (
-    <div className="rounded-[1.25rem] border border-white/10 bg-[rgba(255,255,255,0.02)] p-4">
-      <p className="text-[11px] uppercase tracking-[0.32em] text-[var(--muted)]">{label}</p>
-      <p className="mt-3 font-display text-3xl text-[var(--ink)]">{value}</p>
-      <p className="mt-2 text-sm text-[var(--muted)]">{detail}</p>
+    <div className="rounded-md border border-[var(--line)] bg-[var(--panel)] p-4">
+      <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--muted)]">
+        {label}
+      </p>
+      <p className="mt-2 text-3xl font-semibold tabular-nums text-[var(--ink)]">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{detail}</p>
     </div>
   );
 }
@@ -83,15 +87,15 @@ export function Button({
 >) {
   const tone =
     variant === "primary"
-      ? "border-[var(--accent)] bg-[var(--accent)] text-[#17120d]"
+      ? "bg-[var(--accent)] text-[var(--bg)] border-[var(--accent)] hover:opacity-90"
       : variant === "secondary"
-        ? "border-white/10 bg-white/5 text-[var(--ink)]"
-        : "border-transparent bg-transparent text-[var(--muted)]";
+        ? "border-[var(--line)] bg-[var(--panel)] text-[var(--ink)] hover:border-[var(--accent-ring)]"
+        : "border-transparent bg-transparent text-[var(--muted)] hover:text-[var(--ink)]";
 
   return (
     <button
       {...props}
-      className={`rounded-full border px-4 py-2 text-xs uppercase tracking-[0.26em] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-50 ${tone} ${props.className ?? ""}`}
+      className={`rounded-md border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${tone} ${props.className ?? ""}`}
     >
       {children}
     </button>
@@ -104,17 +108,15 @@ export function StatusPill({
 }: PropsWithChildren<{ tone: "good" | "warn" | "bad" | "neutral" }>) {
   const className =
     tone === "good"
-      ? "border-[rgba(119,211,168,0.35)] bg-[rgba(119,211,168,0.12)] text-[var(--good)]"
+      ? "border-[rgba(74,222,128,0.3)] bg-[rgba(74,222,128,0.1)] text-[var(--good)]"
       : tone === "warn"
-        ? "border-[rgba(241,194,125,0.3)] bg-[rgba(241,194,125,0.12)] text-[var(--warn)]"
+        ? "border-[rgba(251,146,60,0.3)] bg-[rgba(251,146,60,0.1)] text-[var(--warn)]"
         : tone === "bad"
-          ? "border-[rgba(241,131,114,0.35)] bg-[rgba(241,131,114,0.12)] text-[var(--bad)]"
-          : "border-white/10 bg-white/5 text-[var(--muted)]";
+          ? "border-[rgba(248,113,113,0.3)] bg-[rgba(248,113,113,0.1)] text-[var(--bad)]"
+          : "border-[var(--line)] bg-[var(--panel)] text-[var(--muted)]";
 
   return (
-    <span
-      className={`inline-flex rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.24em] ${className}`}
-    >
+    <span className={`inline-flex rounded border px-2 py-0.5 text-[11px] font-medium ${className}`}>
       {children}
     </span>
   );
@@ -122,11 +124,13 @@ export function StatusPill({
 
 export function JsonCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-[1.25rem] border border-white/10 bg-[var(--panel-strong)]">
-      <div className="border-b border-white/10 px-4 py-3 text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
+    <div className="rounded-md border border-[var(--line)] bg-[var(--panel-strong)]">
+      <div className="border-b border-[var(--line)] px-3 py-2 text-[10px] font-medium uppercase tracking-wider text-[var(--muted)]">
         {label}
       </div>
-      <pre className="overflow-x-auto p-4 text-xs leading-6 text-[var(--ink)]">{value}</pre>
+      <pre className="p-4 text-xs leading-6 text-[var(--ink)] [white-space:pre-wrap] [word-break:break-all]">
+        {value}
+      </pre>
     </div>
   );
 }
@@ -143,10 +147,17 @@ export function RouteLink({
   return (
     <Link
       to={to}
-      className="group rounded-[1.25rem] border border-white/10 bg-[rgba(255,255,255,0.02)] p-4 transition hover:border-[rgba(195,140,74,0.36)] hover:bg-[rgba(195,140,74,0.08)]"
+      className="group flex items-start justify-between rounded-md border border-[var(--line)] bg-[var(--panel)] px-4 py-3 transition-colors hover:border-[var(--accent-ring)] hover:bg-[var(--panel-strong)]"
     >
-      <p className="text-[11px] uppercase tracking-[0.32em] text-[var(--accent)]">{title}</p>
-      <p className="mt-3 text-sm leading-6 text-[var(--muted)]">{description}</p>
+      <div className="space-y-0.5">
+        <p className="text-xs font-semibold text-[var(--ink)] transition-colors group-hover:text-[var(--accent)]">
+          {title}
+        </p>
+        <p className="text-xs leading-5 text-[var(--muted)]">{description}</p>
+      </div>
+      <span className="mt-0.5 shrink-0 text-[var(--muted)] transition-colors group-hover:text-[var(--accent)]">
+        →
+      </span>
     </Link>
   );
 }

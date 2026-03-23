@@ -21,14 +21,14 @@ function RouteComponent() {
       title="Project Hub starts the relationship, keeps the connection handle, and turns it into live incident context."
       intro="This demo is a project coordination application. It asks Falcon Connect to establish a directional link into Incident Ops, then uses the returned connection identifier to mint short-lived runtime tokens whenever a project owner needs live operational context."
       aside={
-        <div className="rounded-[1.5rem] border border-white/10 bg-[rgba(255,255,255,0.03)] p-5">
-          <p className="text-[11px] uppercase tracking-[0.32em] text-[var(--muted)]">
+        <div className="rounded-md border border-[var(--line)] bg-[var(--panel)] p-4">
+          <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--muted)]">
             Live workspace status
           </p>
-          <div className="mt-4 space-y-4">
+          <div className="mt-3 space-y-3">
             <div>
-              <p className="font-display text-2xl text-[var(--ink)]">{workspace.label}</p>
-              <p className="mt-2 text-sm text-[var(--muted)]">{workspace.summary}</p>
+              <p className="text-sm font-semibold text-[var(--ink)]">{workspace.label}</p>
+              <p className="mt-1 text-xs leading-5 text-[var(--muted)]">{workspace.summary}</p>
             </div>
             <StatusPill tone={connection ? "good" : "warn"}>
               {ready && connection ? `Connected: ${connection.status}` : "Connection pending"}
@@ -37,7 +37,7 @@ function RouteComponent() {
         </div>
       }
     >
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-3 md:grid-cols-3">
         <MetricCard
           label="Projects under watch"
           value={String(projects.length)}
@@ -55,37 +55,37 @@ function RouteComponent() {
         />
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+      <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
         <Panel
           title="Active projects"
           subtitle="These are normal product objects. Falcon Connect never owns them; it only standardizes the trust boundary around target-side calls."
         >
-          <div className="grid gap-4">
+          <div className="grid gap-3">
             {projects.map((project) => (
               <article
                 key={project.id}
-                className="rounded-[1.25rem] border border-white/10 bg-[rgba(255,255,255,0.02)] p-4"
+                className="rounded-md border border-[var(--line)] bg-[var(--panel-strong)] p-4"
               >
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.32em] text-[var(--accent)]">
+                    <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--accent)]">
                       {project.tier}
                     </p>
-                    <h3 className="mt-2 font-display text-2xl text-[var(--ink)]">{project.name}</h3>
-                    <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted)]">
+                    <h3 className="mt-1 text-sm font-semibold text-[var(--ink)]">{project.name}</h3>
+                    <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--muted)]">
                       {project.summary}
                     </p>
                   </div>
-                  <div className="rounded-[1rem] border border-white/10 bg-[var(--panel-strong)] px-4 py-3 text-sm text-[var(--muted)]">
+                  <div className="rounded border border-[var(--line)] bg-[var(--bg)] px-3 py-2 text-xs text-[var(--muted)]">
                     Owner: <span className="text-[var(--ink)]">{project.owner}</span>
                   </div>
                 </div>
-                <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div className="mt-3 grid gap-3 lg:grid-cols-2">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
+                    <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--muted)]">
                       Service IDs sent to Incident Ops
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-2">
+                    <div className="mt-2 flex flex-wrap gap-2">
                       {project.serviceIds.map((serviceId) => (
                         <StatusPill key={serviceId} tone="neutral">
                           {serviceId}
@@ -94,12 +94,12 @@ function RouteComponent() {
                     </div>
                   </div>
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
+                    <p className="text-[10px] font-medium uppercase tracking-widest text-[var(--muted)]">
                       Watch items
                     </p>
-                    <ul className="mt-3 grid gap-2 text-sm text-[var(--muted)]">
+                    <ul className="mt-2 grid gap-1 text-xs text-[var(--muted)]">
                       {project.watchItems.map((item) => (
-                        <li key={item}>• {item}</li>
+                        <li key={item}>· {item}</li>
                       ))}
                     </ul>
                   </div>
@@ -113,7 +113,7 @@ function RouteComponent() {
           title="Where to go next"
           subtitle="The route structure keeps the mental model and the implementation surface separate."
         >
-          <div className="grid gap-3">
+          <div className="grid gap-2">
             <RouteLink
               to="/mental-model"
               title="Mental model"

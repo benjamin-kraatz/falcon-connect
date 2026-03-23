@@ -21,22 +21,17 @@ export default function Header() {
   };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[rgba(5,12,18,0.9)] backdrop-blur-xl">
-      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-[0.48em] text-[var(--accent)]">
-            Falcon Connect Demo 02
+    <header className="sticky top-0 z-40 border-b border-[var(--line)] bg-[var(--bg)]/90 backdrop-blur-md">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-5">
+        <div className="flex items-center gap-2.5">
+          <span className="text-sm font-semibold text-[var(--ink)]">Incident Ops</span>
+          <span className="rounded border border-[var(--line)] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-[var(--muted)]">
+            Target
           </span>
-          <div className="flex items-center gap-3">
-            <h1 className="font-display text-xl text-[var(--ink)]">Incident Ops</h1>
-            <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.28em] text-[var(--muted)]">
-              Target App
-            </span>
-          </div>
         </div>
 
-        <div className="flex flex-col gap-3 lg:items-end">
-          <nav className="flex flex-wrap gap-2">
+        <div className="flex items-center">
+          <nav className="flex items-center">
             {navItems.map((item) => {
               const isActive =
                 location.pathname === item.to ||
@@ -46,26 +41,36 @@ export default function Header() {
                 <Link
                   key={item.to}
                   to={item.to}
-                  className={`rounded-full border px-3 py-2 text-xs uppercase tracking-[0.26em] transition ${
-                    isActive
-                      ? "border-[var(--accent)] bg-[rgba(105,220,255,0.12)] text-[var(--ink)]"
-                      : "border-white/10 text-[var(--muted)] hover:border-[rgba(105,220,255,0.35)] hover:text-[var(--ink)]"
+                  className={`relative px-3 py-1 text-xs font-medium transition-colors ${
+                    isActive ? "text-[var(--ink)]" : "text-[var(--muted)] hover:text-[var(--ink)]"
                   }`}
                 >
                   {item.label}
+                  {isActive && (
+                    <span className="absolute bottom-0 left-0 right-0 h-px bg-[var(--accent)]" />
+                  )}
                 </Link>
               );
             })}
           </nav>
 
-          <div className="flex items-center gap-3 rounded-full border border-white/10 bg-[rgba(255,255,255,0.03)] px-4 py-2 text-xs uppercase tracking-[0.24em] text-[var(--muted)]">
-            <span>{state.session ? state.session.name : "Signed out"}</span>
+          <div className="ml-4 flex items-center gap-2 border-l border-[var(--line)] pl-4 text-xs">
+            <span className="text-[var(--muted)]">
+              {state.session ? state.session.name : "Signed out"}
+            </span>
             {state.session ? (
-              <button className="text-[var(--ink)]" onClick={signOut}>
+              <button
+                className="text-[var(--ink)] transition-colors hover:text-[var(--accent)]"
+                onClick={signOut}
+              >
                 Sign out
               </button>
             ) : (
-              <Link to="/login" search={{ redirect: location.href }}>
+              <Link
+                to="/login"
+                search={{ redirect: location.href }}
+                className="text-[var(--accent)]"
+              >
                 Sign in
               </Link>
             )}

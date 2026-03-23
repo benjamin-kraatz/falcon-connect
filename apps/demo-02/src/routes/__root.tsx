@@ -36,7 +36,7 @@ function RootDocument() {
         <HeadContent />
       </head>
       <body>
-        <div className="page-shell grid-noise grid min-h-screen grid-rows-[auto_1fr]">
+        <div className="grid min-h-screen w-full max-w-full grid-rows-[auto_1fr] overflow-x-hidden">
           <Header />
           <Outlet />
         </div>

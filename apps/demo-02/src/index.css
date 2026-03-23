@@ -1,26 +1,28 @@
-@import url("https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Newsreader:opsz,wght@6..72,500;6..72,700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
 @import "@falcon/ui/globals.css";
 
 :root {
-  --bg: #041018;
-  --panel: rgba(8, 20, 28, 0.9);
-  --panel-strong: #071721;
-  --ink: #ecf7fb;
-  --muted: #89a5b4;
-  --accent: #69dcff;
-  --good: #84f0b4;
-  --warn: #ffd27d;
-  --bad: #ff8578;
-  --shadow: 0 26px 80px rgba(0, 0, 0, 0.42);
-  font-family: "Chakra Petch", sans-serif;
-  color: var(--ink);
-  background:
-    radial-gradient(circle at top right, rgba(105, 220, 255, 0.18), transparent 24rem),
-    radial-gradient(circle at bottom left, rgba(91, 126, 255, 0.18), transparent 24rem),
-    linear-gradient(180deg, #041018 0%, #07131c 100%);
+  --bg: #0d0c0a;
+  --panel: #141210;
+  --panel-strong: #100f0d;
+  --ink: #f5f3ef;
+  --muted: #a09990;
+  --accent: #f59e0b;
+  --accent-dim: rgba(245, 158, 11, 0.12);
+  --accent-ring: rgba(245, 158, 11, 0.35);
+  --line: rgba(255, 255, 255, 0.08);
+  --good: #4ade80;
+  --warn: #fb923c;
+  --bad: #f87171;
+
+  /* Override shadcn theme tokens so globals.css base layer uses our colors */
+  --background: #0d0c0a;
+  --foreground: #f5f3ef;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
@@ -31,12 +33,22 @@ body,
 }
 
 html {
-  background: var(--bg);
+  background: #0d0c0a;
+  font-family: "Inter", sans-serif;
+  color: #f5f3ef;
 }
 
 body {
   margin: 0;
-  color: var(--ink);
+  color: #f5f3ef;
+  overflow-x: hidden;
+  background-color: #0d0c0a;
+  background-image: radial-gradient(
+    ellipse 80% 320px at 50% -60px,
+    rgba(245, 158, 11, 0.12),
+    transparent
+  );
+  background-attachment: fixed;
 }
 
 a {
@@ -54,24 +66,4 @@ textarea {
 code,
 pre {
   font-family: "IBM Plex Mono", monospace;
-}
-
-.font-display {
-  font-family: "Newsreader", serif;
-}
-
-.page-shell {
-  min-height: 100vh;
-}
-
-.grid-noise::before {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  content: "";
-  opacity: 0.06;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-  background-size: 34px 34px;
 }

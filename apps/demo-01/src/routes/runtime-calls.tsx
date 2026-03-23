@@ -199,7 +199,7 @@ function RouteComponent() {
       title="Project Hub mints a short-lived Falcon token and calls Incident Ops directly."
       intro="These requests are normal application traffic. The source app chooses the business payload. The only Falcon-specific part is the runtime token it fetches just in time from the control plane."
     >
-      <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
         <Panel
           title="Runtime request console"
           subtitle="Pick a project, mint a fresh token, and call a target endpoint with either local verification or forced introspection."
