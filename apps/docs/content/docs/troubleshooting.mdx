@@ -28,10 +28,10 @@ When the target app cannot resolve the install token, the likely causes are:
 
 - the install intent expired
 - the token audience does not match the target app
-- the target app is using the wrong trusted app identity when talking back to Falcon
+- the target app is using the wrong trusted app identity when talking back to FALCON
 - the token was altered or truncated in redirect handling
 
-Always log the target app id, the received token presence, and the resulting Falcon error code. Without those basics, debugging becomes far more expensive than it needs to be.
+Always log the target app id, the received token presence, and the resulting FALCON error code. Without those basics, debugging becomes far more expensive than it needs to be.
 
 ## Consent Succeeds but the Source App Does Not See a Connection
 
@@ -49,7 +49,7 @@ Because connection state is mutable, a source app should not assume a previously
 
 ## The Target App Rejects a Runtime Token
 
-When a target app rejects a Falcon token, separate local verification failures from introspection failures.
+When a target app rejects a FALCON token, separate local verification failures from introspection failures.
 
 Local verification failures usually involve expired tokens, audience mismatch, stale JWKS cache, or malformed JWTs.
 
@@ -60,9 +60,9 @@ Introspection failures usually involve inactive connection state, connection not
 When in doubt, use this order:
 
 1. verify that the trusted app identity and key id are correct
-2. verify that the callback URL or target app id is the one Falcon expects
+2. verify that the callback URL or target app id is the one FALCON expects
 3. verify that the install or runtime token has the expected audience
-4. verify the current connection status in the Falcon dashboard
-5. verify whether the target app is failing on local JWT validation or on Falcon introspection
+4. verify the current connection status in the FALCON dashboard
+5. verify whether the target app is failing on local JWT validation or on FALCON introspection
 
 That sequence usually gets you to the root cause much faster than starting from the UI symptom alone.

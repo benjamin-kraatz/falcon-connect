@@ -330,7 +330,7 @@ export async function requireFalconConnection(request: Request) {
   const authorization = request.headers.get("authorization");
 
   if (!authorization?.startsWith("Bearer ")) {
-    throw new Error("Missing Falcon bearer token");
+    throw new Error("Missing FALCON bearer token");
   }
 
   const token = authorization.slice("Bearer ".length);
@@ -351,7 +351,7 @@ export async function requireFalconConnection(request: Request) {
   }
 
   if (!verification.result.active || !verification.result.connection) {
-    throw new Error(`Inactive Falcon connection: ${verification.result.reason}`);
+    throw new Error(`Inactive FALCON connection: ${verification.result.reason}`);
   }
 
   return {

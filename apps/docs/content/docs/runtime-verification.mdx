@@ -6,25 +6,25 @@ icon: KeyRound
 
 # Runtime Verification
 
-At runtime, the user is no longer clicking through a consent screen. The system has already established a directional relationship. The runtime problem is now much narrower: when the source app sends a direct request to the target app, how does the target app verify that the request belongs to an active Falcon Connect relationship?
+At runtime, the user is no longer clicking through a consent screen. The system has already established a directional relationship. The runtime problem is now much narrower: when the source app sends a direct request to the target app, how does the target app verify that the request belongs to an active FALCON Connect relationship?
 
-The answer in v1 is a Falcon-issued JWT plus a fallback introspection endpoint.
+The answer in v1 is a FALCON-issued JWT plus a fallback introspection endpoint.
 
 ## The Normal Runtime Path
 
 The normal runtime path is intentionally simple.
 
-First, the source app exchanges a `connectionId` for a short-lived Falcon connection token. Falcon checks that the connection belongs to that source app and is currently active. If those conditions hold, Falcon signs a JWT whose audience is the target app id.
+First, the source app exchanges a `connectionId` for a short-lived FALCON connection token. FALCON checks that the connection belongs to that source app and is currently active. If those conditions hold, FALCON signs a JWT whose audience is the target app id.
 
 Second, the source app calls the target app directly and includes that JWT.
 
-Third, the target app verifies the JWT locally against Falcon's JWKS endpoint:
+Third, the target app verifies the JWT locally against FALCON's JWKS endpoint:
 
 ```text
 GET /.well-known/jwks.json
 ```
 
-That is the fast path. No extra Falcon round-trip is required when the token is valid and the target app's local JWKS cache is current.
+That is the fast path. No extra FALCON round-trip is required when the token is valid and the target app's local JWKS cache is current.
 
 ## Token Claims
 
@@ -38,7 +38,7 @@ The current JWT claims include:
 - the granted scope list
 - standard JWT fields such as issuer, audience, subject, issued-at, expiry, and JWT id
 
-The target app should treat those claims as verified connection metadata, not as a replacement for its own business authorization logic. Falcon can tell you that the directional relationship exists and what scopes were granted. Your app still decides how those scopes map to concrete endpoints, resources, and behaviors.
+The target app should treat those claims as verified connection metadata, not as a replacement for its own business authorization logic. FALCON can tell you that the directional relationship exists and what scopes were granted. Your app still decides how those scopes map to concrete endpoints, resources, and behaviors.
 
 ## Why Audience Matters
 
@@ -46,7 +46,7 @@ The token audience is set to the target app id. That is a deliberate protection 
 
 ## When to Introspect
 
-Local verification is the normal path, but not the only path. The target app should use Falcon introspection when it needs an authoritative answer from the control plane.
+Local verification is the normal path, but not the only path. The target app should use FALCON introspection when it needs an authoritative answer from the control plane.
 
 The obvious cases are:
 
@@ -55,24 +55,24 @@ The obvious cases are:
 - the app wants to confirm pause or revoke state before honoring a sensitive request
 - the app wants an authoritative view of the currently granted scopes after a reconnect or scope change
 
-Falcon exposes:
+FALCON exposes:
 
 ```text
 POST /v1/connections/introspect
 ```
 
-The target app may send either the connection token, the connection id, or both. Falcon resolves the connection state and returns whether the connection is active plus the current connection record.
+The target app may send either the connection token, the connection id, or both. FALCON resolves the connection state and returns whether the connection is active plus the current connection record.
 
 ## Why the Model Is Hybrid
 
-If Falcon introspection were mandatory on every runtime request, Falcon would become a hot-path dependency for all partner traffic. That would make the system easier to reason about, but it would also make it more expensive and more latency-sensitive.
+If FALCON introspection were mandatory on every runtime request, FALCON would become a hot-path dependency for all partner traffic. That would make the system easier to reason about, but it would also make it more expensive and more latency-sensitive.
 
-If Falcon were only a token issuer and never provided introspection, pause and revoke state would be slower and less authoritative at runtime.
+If FALCON were only a token issuer and never provided introspection, pause and revoke state would be slower and less authoritative at runtime.
 
 The hybrid approach is the compromise:
 
 - local JWT verification keeps the common path fast
-- Falcon introspection preserves authoritative state when local verification is not enough
+- FALCON introspection preserves authoritative state when local verification is not enough
 
 ## How Target Apps Should Fail
 
