@@ -4,6 +4,7 @@ import {
   authenticateTrustedAppRequest,
   createInstallIntent,
   decideInstallIntent,
+  ensureDemoTrustedAppsRegistered,
   getFalconJwks,
   introspectConnection,
   issueConnectionAccessToken,
@@ -29,8 +30,13 @@ type AppVariables = {
 };
 
 const app = new Hono<{ Variables: AppVariables }>();
+const demoBootstrap = ensureDemoTrustedAppsRegistered();
 
 app.use(logger());
+app.use("/*", async (_c, next) => {
+  await demoBootstrap;
+  await next();
+});
 app.use(
   "/*",
   cors({

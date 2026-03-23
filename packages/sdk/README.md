@@ -31,4 +31,13 @@ This is the TypeScript SDK for integrating partner applications with FALCON Conn
 
 V1 starts with `read:app-info` as a non-disableable Falcon system scope. The SDK treats system and required scopes as locked during consent selection.
 
-See the [docs site](https://falcon-connect-docs.vercel.app/) for end-to-end integration details.
+## End-to-End Demo Apps
+
+The SDK is exercised end to end in this monorepo by:
+
+- `apps/demo-01` implementing **Project Hub** as the source app
+- `apps/demo-02` implementing **Incident Ops** as the target app
+
+Together they cover the high-level source and target clients, the consent helpers, and the lower-level crypto helpers used for signed app requests and JWT verification.
+
+See the [docs site](https://falcon-connect-docs.vercel.app/) for the narrative walkthrough and the demo app READMEs for the local runbook.

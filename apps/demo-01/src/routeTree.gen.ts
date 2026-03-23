@@ -9,18 +9,37 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as LoginRouteImport } from './routes/login'
-import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as SdkInternalsRouteImport } from './routes/sdk-internals'
+import { Route as RuntimeCallsRouteImport } from './routes/runtime-calls'
+import { Route as OverviewRouteImport } from './routes/overview'
+import { Route as MentalModelRouteImport } from './routes/mental-model'
+import { Route as ConnectFlowRouteImport } from './routes/connect-flow'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ConnectFlowCallbackRouteImport } from './routes/connect-flow.callback'
 
-const LoginRoute = LoginRouteImport.update({
-  id: '/login',
-  path: '/login',
+const SdkInternalsRoute = SdkInternalsRouteImport.update({
+  id: '/sdk-internals',
+  path: '/sdk-internals',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const RuntimeCallsRoute = RuntimeCallsRouteImport.update({
+  id: '/runtime-calls',
+  path: '/runtime-calls',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OverviewRoute = OverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MentalModelRoute = MentalModelRouteImport.update({
+  id: '/mental-model',
+  path: '/mental-model',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectFlowRoute = ConnectFlowRouteImport.update({
+  id: '/connect-flow',
+  path: '/connect-flow',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -28,51 +47,114 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ConnectFlowCallbackRoute = ConnectFlowCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => ConnectFlowRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
-  '/login': typeof LoginRoute
+  '/connect-flow': typeof ConnectFlowRouteWithChildren
+  '/mental-model': typeof MentalModelRoute
+  '/overview': typeof OverviewRoute
+  '/runtime-calls': typeof RuntimeCallsRoute
+  '/sdk-internals': typeof SdkInternalsRoute
+  '/connect-flow/callback': typeof ConnectFlowCallbackRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
-  '/login': typeof LoginRoute
+  '/connect-flow': typeof ConnectFlowRouteWithChildren
+  '/mental-model': typeof MentalModelRoute
+  '/overview': typeof OverviewRoute
+  '/runtime-calls': typeof RuntimeCallsRoute
+  '/sdk-internals': typeof SdkInternalsRoute
+  '/connect-flow/callback': typeof ConnectFlowCallbackRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
-  '/login': typeof LoginRoute
+  '/connect-flow': typeof ConnectFlowRouteWithChildren
+  '/mental-model': typeof MentalModelRoute
+  '/overview': typeof OverviewRoute
+  '/runtime-calls': typeof RuntimeCallsRoute
+  '/sdk-internals': typeof SdkInternalsRoute
+  '/connect-flow/callback': typeof ConnectFlowCallbackRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/login'
+  fullPaths:
+    | '/'
+    | '/connect-flow'
+    | '/mental-model'
+    | '/overview'
+    | '/runtime-calls'
+    | '/sdk-internals'
+    | '/connect-flow/callback'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/login'
-  id: '__root__' | '/' | '/dashboard' | '/login'
+  to:
+    | '/'
+    | '/connect-flow'
+    | '/mental-model'
+    | '/overview'
+    | '/runtime-calls'
+    | '/sdk-internals'
+    | '/connect-flow/callback'
+  id:
+    | '__root__'
+    | '/'
+    | '/connect-flow'
+    | '/mental-model'
+    | '/overview'
+    | '/runtime-calls'
+    | '/sdk-internals'
+    | '/connect-flow/callback'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DashboardRoute: typeof DashboardRoute
-  LoginRoute: typeof LoginRoute
+  ConnectFlowRoute: typeof ConnectFlowRouteWithChildren
+  MentalModelRoute: typeof MentalModelRoute
+  OverviewRoute: typeof OverviewRoute
+  RuntimeCallsRoute: typeof RuntimeCallsRoute
+  SdkInternalsRoute: typeof SdkInternalsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginRouteImport
+    '/sdk-internals': {
+      id: '/sdk-internals'
+      path: '/sdk-internals'
+      fullPath: '/sdk-internals'
+      preLoaderRoute: typeof SdkInternalsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
+    '/runtime-calls': {
+      id: '/runtime-calls'
+      path: '/runtime-calls'
+      fullPath: '/runtime-calls'
+      preLoaderRoute: typeof RuntimeCallsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/overview': {
+      id: '/overview'
+      path: '/overview'
+      fullPath: '/overview'
+      preLoaderRoute: typeof OverviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mental-model': {
+      id: '/mental-model'
+      path: '/mental-model'
+      fullPath: '/mental-model'
+      preLoaderRoute: typeof MentalModelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connect-flow': {
+      id: '/connect-flow'
+      path: '/connect-flow'
+      fullPath: '/connect-flow'
+      preLoaderRoute: typeof ConnectFlowRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -82,14 +164,45 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/connect-flow/callback': {
+      id: '/connect-flow/callback'
+      path: '/callback'
+      fullPath: '/connect-flow/callback'
+      preLoaderRoute: typeof ConnectFlowCallbackRouteImport
+      parentRoute: typeof ConnectFlowRoute
+    }
   }
 }
 
+interface ConnectFlowRouteChildren {
+  ConnectFlowCallbackRoute: typeof ConnectFlowCallbackRoute
+}
+
+const ConnectFlowRouteChildren: ConnectFlowRouteChildren = {
+  ConnectFlowCallbackRoute: ConnectFlowCallbackRoute,
+}
+
+const ConnectFlowRouteWithChildren = ConnectFlowRoute._addFileChildren(
+  ConnectFlowRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DashboardRoute: DashboardRoute,
-  LoginRoute: LoginRoute,
+  ConnectFlowRoute: ConnectFlowRouteWithChildren,
+  MentalModelRoute: MentalModelRoute,
+  OverviewRoute: OverviewRoute,
+  RuntimeCallsRoute: RuntimeCallsRoute,
+  SdkInternalsRoute: SdkInternalsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

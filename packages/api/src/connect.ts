@@ -52,6 +52,83 @@ const DEV_FALCON_SIGNING_PRIVATE_JWK = {
 } satisfies JsonWebKey;
 
 const DEV_FALCON_SIGNING_KEY_ID = "falcon-connect-dev-1";
+const DEMO_SOURCE_APP_ID = "project-hub-demo";
+const DEMO_TARGET_APP_ID = "incident-ops-demo";
+
+const DEMO_SOURCE_APP = {
+  id: DEMO_SOURCE_APP_ID,
+  slug: "project-hub-demo",
+  displayName: "Project Hub Demo",
+  connectRequestUrl: "http://localhost:4101/overview",
+  dataApiBaseUrl: "http://localhost:4101/api/runtime",
+  allowedRedirectUrls: ["http://localhost:4101/connect-flow/callback"],
+  supportEmail: "project-hub-demo@falcon.local",
+  supportUrl: "http://localhost:4101/mental-model",
+  privateJwk: {
+    crv: "Ed25519",
+    d: "NjqP_iJJX-dycue8bwvu7iUZq_xJ_i3eLeTo1t2OeBU",
+    x: "jRb4Sc7A4pKsWiBnjuJaFQ2b0aH-e4E7UyK5U1ZhHfM",
+    kty: "OKP",
+  } satisfies JsonWebKey,
+  keyId: "project-hub-demo-key-1",
+} as const;
+
+const DEMO_TARGET_APP = {
+  id: DEMO_TARGET_APP_ID,
+  slug: "incident-ops-demo",
+  displayName: "Incident Ops Demo",
+  connectRequestUrl: "http://localhost:4102/connect-flow",
+  dataApiBaseUrl: "http://localhost:4102/api/runtime",
+  allowedRedirectUrls: ["http://localhost:4102/connect-flow"],
+  supportEmail: "incident-ops-demo@falcon.local",
+  supportUrl: "http://localhost:4102/mental-model",
+  privateJwk: {
+    crv: "Ed25519",
+    d: "iT1lYpdMc7prKXq07FXzmF-0KMN1jFDV6Qsqba_wuHs",
+    x: "1eN1bf41sXSURTvYPlsa45-ZxMaNPPe5dW6QyBIaj7A",
+    kty: "OKP",
+  } satisfies JsonWebKey,
+  keyId: "incident-ops-demo-key-1",
+  scopes: [
+    {
+      name: "read:app-info",
+      displayName: "App metadata",
+      description: "Falcon system scope used to display target app identity during verification.",
+      requiredByDefault: true,
+      system: true,
+    },
+    {
+      name: "incidents:read",
+      displayName: "Incident summaries",
+      description: "Read active incidents and tie them back to project delivery risk.",
+      requiredByDefault: true,
+      system: false,
+    },
+    {
+      name: "services:read",
+      displayName: "Service health",
+      description: "Read the live health state for services that projects depend on.",
+      requiredByDefault: true,
+      system: false,
+    },
+    {
+      name: "oncall:read",
+      displayName: "On-call roster",
+      description: "Read the currently assigned responders for escalation handoffs.",
+      requiredByDefault: false,
+      system: false,
+    },
+    {
+      name: "runbooks:read",
+      displayName: "Runbooks",
+      description: "Read suggested remediation runbooks for linked incidents.",
+      requiredByDefault: false,
+      system: false,
+    },
+  ],
+} as const;
+
+let demoTrustedAppsBootstrapPromise: Promise<void> | null = null;
 
 type TrustedAppRow = typeof trustedApp.$inferSelect;
 type TrustedAppScopeRow = typeof trustedAppScope.$inferSelect;
@@ -137,6 +214,120 @@ function parseJsonObject(value: string) {
 
 function uniqueStrings(values: string[]) {
   return [...new Set(values)];
+}
+
+async function upsertTrustedAppDefinition(input: {
+  id: string;
+  slug: string;
+  displayName: string;
+  connectRequestUrl: string;
+  dataApiBaseUrl: string;
+  allowedRedirectUrls: string[];
+  supportEmail: string | null;
+  supportUrl: string | null;
+}) {
+  const existing = await getTrustedAppRow(input.id);
+
+  if (!existing) {
+    await db.insert(trustedApp).values({
+      id: input.id,
+      slug: input.slug,
+      displayName: input.displayName,
+      status: "active",
+      connectRequestUrl: input.connectRequestUrl,
+      dataApiBaseUrl: input.dataApiBaseUrl,
+      allowedRedirectUrlsJson: serializeJson(input.allowedRedirectUrls),
+      supportEmail: input.supportEmail,
+      supportUrl: input.supportUrl,
+    });
+    return;
+  }
+
+  await db
+    .update(trustedApp)
+    .set({
+      slug: input.slug,
+      displayName: input.displayName,
+      status: "active",
+      connectRequestUrl: input.connectRequestUrl,
+      dataApiBaseUrl: input.dataApiBaseUrl,
+      allowedRedirectUrlsJson: serializeJson(input.allowedRedirectUrls),
+      supportEmail: input.supportEmail,
+      supportUrl: input.supportUrl,
+      updatedAt: new Date(),
+    })
+    .where(eq(trustedApp.id, input.id));
+}
+
+async function upsertTrustedAppKeyDefinition(input: {
+  appId: string;
+  keyId: string;
+  publicJwk: JsonWebKey;
+}) {
+  const existing = await getTrustedAppKeyRow(input.appId, input.keyId);
+
+  if (!existing) {
+    await db.insert(trustedAppKey).values({
+      id: crypto.randomUUID(),
+      appId: input.appId,
+      keyId: input.keyId,
+      algorithm: "EdDSA",
+      publicJwkJson: serializeJson(input.publicJwk),
+      status: "active",
+    });
+    return;
+  }
+
+  await db
+    .update(trustedAppKey)
+    .set({
+      algorithm: "EdDSA",
+      publicJwkJson: serializeJson(input.publicJwk),
+      status: "active",
+    })
+    .where(eq(trustedAppKey.id, existing.id));
+}
+
+async function upsertTrustedAppScopeDefinitions(
+  appId: string,
+  scopes: ReadonlyArray<{
+    name: string;
+    displayName: string;
+    description: string;
+    requiredByDefault: boolean;
+    system: boolean;
+  }>,
+) {
+  const existingScopes = await getTrustedAppScopeRows(appId);
+  const existingByName = new Map(existingScopes.map((scope) => [scope.scopeName, scope]));
+
+  for (const scope of scopes) {
+    const existing = existingByName.get(scope.name);
+
+    if (!existing) {
+      await db.insert(trustedAppScope).values({
+        id: crypto.randomUUID(),
+        appId,
+        scopeName: scope.name,
+        displayName: scope.displayName,
+        description: scope.description,
+        requiredByDefault: scope.requiredByDefault,
+        systemScope: scope.system,
+      });
+      continue;
+    }
+
+    await db
+      .update(trustedAppScope)
+      .set({
+        displayName: scope.displayName,
+        description: scope.description,
+        requiredByDefault: scope.requiredByDefault,
+        systemScope: scope.system,
+        updatedAt: new Date(),
+      })
+      .where(eq(trustedAppScope.id, existing.id));
+  }
 }
 
 function serializeJson(value: unknown) {
@@ -458,12 +649,62 @@ export async function getFalconJwks() {
   };
 }
 
+export async function ensureDemoTrustedAppsRegistered() {
+  demoTrustedAppsBootstrapPromise ??= (async () => {
+    const [sourcePublicJwk, targetPublicJwk] = await Promise.all([
+      getPublicJwk(DEMO_SOURCE_APP.privateJwk),
+      getPublicJwk(DEMO_TARGET_APP.privateJwk),
+    ]);
+
+    await Promise.all([
+      upsertTrustedAppDefinition({
+        id: DEMO_SOURCE_APP.id,
+        slug: DEMO_SOURCE_APP.slug,
+        displayName: DEMO_SOURCE_APP.displayName,
+        connectRequestUrl: DEMO_SOURCE_APP.connectRequestUrl,
+        dataApiBaseUrl: DEMO_SOURCE_APP.dataApiBaseUrl,
+        allowedRedirectUrls: [...DEMO_SOURCE_APP.allowedRedirectUrls],
+        supportEmail: DEMO_SOURCE_APP.supportEmail,
+        supportUrl: DEMO_SOURCE_APP.supportUrl,
+      }),
+      upsertTrustedAppDefinition({
+        id: DEMO_TARGET_APP.id,
+        slug: DEMO_TARGET_APP.slug,
+        displayName: DEMO_TARGET_APP.displayName,
+        connectRequestUrl: DEMO_TARGET_APP.connectRequestUrl,
+        dataApiBaseUrl: DEMO_TARGET_APP.dataApiBaseUrl,
+        allowedRedirectUrls: [...DEMO_TARGET_APP.allowedRedirectUrls],
+        supportEmail: DEMO_TARGET_APP.supportEmail,
+        supportUrl: DEMO_TARGET_APP.supportUrl,
+      }),
+    ]);
+
+    await Promise.all([
+      upsertTrustedAppKeyDefinition({
+        appId: DEMO_SOURCE_APP.id,
+        keyId: DEMO_SOURCE_APP.keyId,
+        publicJwk: sourcePublicJwk,
+      }),
+      upsertTrustedAppKeyDefinition({
+        appId: DEMO_TARGET_APP.id,
+        keyId: DEMO_TARGET_APP.keyId,
+        publicJwk: targetPublicJwk,
+      }),
+      upsertTrustedAppScopeDefinitions(DEMO_TARGET_APP.id, DEMO_TARGET_APP.scopes),
+    ]);
+  })();
+
+  await demoTrustedAppsBootstrapPromise;
+}
+
 export async function authenticateTrustedAppRequest(input: {
   method: string;
   url: string;
   headers: Headers;
   body?: string;
 }): Promise<AuthenticatedAppRequest> {
+  await ensureDemoTrustedAppsRegistered();
+
   const appId = input.headers.get(FALCON_APP_AUTH_HEADERS.appId);
   const keyId = input.headers.get(FALCON_APP_AUTH_HEADERS.keyId);
   const timestamp = input.headers.get(FALCON_APP_AUTH_HEADERS.timestamp);

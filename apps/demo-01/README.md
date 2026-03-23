@@ -1,16 +1,38 @@
-# FALCON Connect Demo App 01 (Source App)
+# Project Hub Demo
 
-This is the first demo app for FALCON Connect. It is meant to represent and demo the source app in a FALCON Connect integration.
-The dependencies are minimal and only depend on the FALCON Connect SDK, to mirror a real-world application acting as the source app as closely as possible.
+`apps/demo-01` is the **source app** reference implementation for Falcon Connect.
 
-For the target app demo, see [demo-02](../demo-02).
+Project Hub is a project/work management product that wants live incident context from Incident Ops. It demonstrates:
+
+- `overview`: source-side product context
+- `mental-model`: install-time vs runtime separation
+- `connect-flow`: install intent creation and redirect into the target app
+- `connect-flow/callback`: callback parsing and `connectionId` persistence
+- `runtime-calls`: runtime token minting and direct target API calls
+- `sdk-internals`: signed request helpers, decoded JWTs, and verified claims
 
 ## Running Locally
 
-Run the demo app in development with:
+Start Falcon Connect first:
+
+```bash
+bun run dev:server
+```
+
+Then run the source app:
 
 ```bash
 bun run dev
 ```
 
-This will start the demo app at [http://localhost:4101](http://localhost:4101).
+The app runs at [http://localhost:4101](http://localhost:4101).
+
+## Demo Runbook
+
+1. Open `http://localhost:4101/connect-flow`.
+2. Create an install intent for the current workspace.
+3. Complete consent in `demo-02`.
+4. Return through the callback.
+5. Open `Runtime Calls` and hit the Incident Ops endpoints with fresh Falcon tokens.
+
+For the target app demo, see [demo-02](../demo-02).

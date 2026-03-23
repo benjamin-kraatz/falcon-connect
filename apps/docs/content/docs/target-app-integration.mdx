@@ -8,6 +8,8 @@ icon: Handshake
 
 This page is written for the receiving side of the relationship. In FALCON Connect terminology, that is the target app.
 
+The `apps/demo-02` Incident Ops app is the reference implementation for this target-side flow.
+
 The target app has two responsibilities that are easy to mix together if you are not careful:
 
 1. at install time, it resolves the install intent and hosts the consent UX
@@ -26,6 +28,8 @@ At this point, your app knows only that someone is asking it to evaluate a FALCO
 The target app is fully responsible for local user authentication. FALCON does not sign the user into your system, and it does not supply a target-side session. If your application requires login before an installation can be approved, enforce that requirement before you move to the consent screen.
 
 This is one of the most important trust boundaries in the whole design. FALCON Connect can tell you which source app is requesting access and which `falconSubjectId` and `organizationId` the request is about. It cannot decide whether the currently present user in your app is actually allowed to approve that request.
+
+The demo pair makes this explicit by forcing a local Incident Ops login before consent can be submitted.
 
 ## Resolving the Install Intent
 

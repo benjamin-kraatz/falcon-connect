@@ -8,6 +8,8 @@ icon: Rocket
 
 If you need the shortest useful explanation before you start reading protocol details, this page is it.
 
+If you want to see this sequence in running code, follow the [Demo Apps](/docs/demos) page alongside this quickstart.
+
 There are always three parties involved in a FALCON Connect integration:
 
 - the **source app**, which wants to call another app
@@ -45,6 +47,8 @@ The complete flow in v1 is:
 7. FALCON stores the directional connection and returns a callback URL for the source app.
 8. Later, the source app mints a short-lived runtime token and calls the target app directly.
 9. The target app verifies the token locally and introspects FALCON when needed.
+
+The Project Hub -> Incident Ops demo pair implements this exact flow end to end.
 
 ## The Actual Endpoints
 

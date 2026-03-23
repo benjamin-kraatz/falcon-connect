@@ -8,6 +8,8 @@ icon: Send
 
 This page is written for the application that wants to call another application. In FALCON Connect terminology, that is the source app.
 
+The `apps/demo-01` Project Hub app is the reference implementation for this source-side flow.
+
 The source app has two distinct responsibilities. At install time, it initiates the connection request and handles the callback after consent. At runtime, it mints short-lived FALCON connection tokens and uses them to call the target app directly.
 
 Those responsibilities are related, but they should not be conflated. The code path that starts a connection is not the same code path that performs runtime partner requests.
@@ -43,6 +45,8 @@ This is where you should think carefully about the business context you are usin
 If FALCON accepts the request, it returns a `connectUrl`. Redirect the user there exactly as returned. Do not rebuild the URL manually unless you have a very specific reason to do so.
 
 That URL points at the target app's registered consent route and already includes the signed FALCON install token in its query string.
+
+In the demo pair, Project Hub redirects to Incident Ops at `http://localhost:4102/connect-flow?...`.
 
 ## Handling the Callback
 

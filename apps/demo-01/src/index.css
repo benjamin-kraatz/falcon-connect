@@ -1,1 +1,80 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap");
 @import "@falcon/ui/globals.css";
+
+:root {
+  --bg: #0b1015;
+  --panel: rgba(20, 28, 36, 0.88);
+  --panel-strong: #111a21;
+  --ink: #f5efe5;
+  --muted: #8da0af;
+  --accent: #c38c4a;
+  --line: rgba(255, 255, 255, 0.1);
+  --good: #77d3a8;
+  --warn: #f1c27d;
+  --bad: #f18372;
+  --shadow: 0 24px 80px rgba(0, 0, 0, 0.35);
+  font-family: "Manrope", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at top left, rgba(195, 140, 74, 0.18), transparent 24rem),
+    radial-gradient(circle at top right, rgba(92, 122, 153, 0.12), transparent 26rem),
+    linear-gradient(180deg, #0b1015 0%, #0e141b 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  color: var(--ink);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+code,
+pre {
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.font-display {
+  font-family: "Fraunces", serif;
+}
+
+.page-shell {
+  min-height: 100vh;
+}
+
+.grain::before {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  opacity: 0.05;
+  background-image:
+    linear-gradient(transparent 0, rgba(255, 255, 255, 0.16) 50%, transparent 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  background-size:
+    100% 100%,
+    160px 160px;
+}

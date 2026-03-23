@@ -9,18 +9,47 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SdkInternalsRouteImport } from './routes/sdk-internals'
+import { Route as RuntimeCallsRouteImport } from './routes/runtime-calls'
+import { Route as OverviewRouteImport } from './routes/overview'
+import { Route as MentalModelRouteImport } from './routes/mental-model'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ConnectFlowRouteImport } from './routes/connect-flow'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiRuntimeVerifyRouteImport } from './routes/api/runtime/verify'
+import { Route as ApiRuntimeServiceHealthRouteImport } from './routes/api/runtime/service-health'
+import { Route as ApiRuntimeRunbooksRouteImport } from './routes/api/runtime/runbooks'
+import { Route as ApiRuntimeRosterRouteImport } from './routes/api/runtime/roster'
+import { Route as ApiRuntimeIncidentsRouteImport } from './routes/api/runtime/incidents'
 
+const SdkInternalsRoute = SdkInternalsRouteImport.update({
+  id: '/sdk-internals',
+  path: '/sdk-internals',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RuntimeCallsRoute = RuntimeCallsRouteImport.update({
+  id: '/runtime-calls',
+  path: '/runtime-calls',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OverviewRoute = OverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MentalModelRoute = MentalModelRouteImport.update({
+  id: '/mental-model',
+  path: '/mental-model',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const ConnectFlowRoute = ConnectFlowRouteImport.update({
+  id: '/connect-flow',
+  path: '/connect-flow',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -28,39 +57,165 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRuntimeVerifyRoute = ApiRuntimeVerifyRouteImport.update({
+  id: '/api/runtime/verify',
+  path: '/api/runtime/verify',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRuntimeServiceHealthRoute = ApiRuntimeServiceHealthRouteImport.update({
+  id: '/api/runtime/service-health',
+  path: '/api/runtime/service-health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRuntimeRunbooksRoute = ApiRuntimeRunbooksRouteImport.update({
+  id: '/api/runtime/runbooks',
+  path: '/api/runtime/runbooks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRuntimeRosterRoute = ApiRuntimeRosterRouteImport.update({
+  id: '/api/runtime/roster',
+  path: '/api/runtime/roster',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRuntimeIncidentsRoute = ApiRuntimeIncidentsRouteImport.update({
+  id: '/api/runtime/incidents',
+  path: '/api/runtime/incidents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
+  '/connect-flow': typeof ConnectFlowRoute
   '/login': typeof LoginRoute
+  '/mental-model': typeof MentalModelRoute
+  '/overview': typeof OverviewRoute
+  '/runtime-calls': typeof RuntimeCallsRoute
+  '/sdk-internals': typeof SdkInternalsRoute
+  '/api/runtime/incidents': typeof ApiRuntimeIncidentsRoute
+  '/api/runtime/roster': typeof ApiRuntimeRosterRoute
+  '/api/runtime/runbooks': typeof ApiRuntimeRunbooksRoute
+  '/api/runtime/service-health': typeof ApiRuntimeServiceHealthRoute
+  '/api/runtime/verify': typeof ApiRuntimeVerifyRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
+  '/connect-flow': typeof ConnectFlowRoute
   '/login': typeof LoginRoute
+  '/mental-model': typeof MentalModelRoute
+  '/overview': typeof OverviewRoute
+  '/runtime-calls': typeof RuntimeCallsRoute
+  '/sdk-internals': typeof SdkInternalsRoute
+  '/api/runtime/incidents': typeof ApiRuntimeIncidentsRoute
+  '/api/runtime/roster': typeof ApiRuntimeRosterRoute
+  '/api/runtime/runbooks': typeof ApiRuntimeRunbooksRoute
+  '/api/runtime/service-health': typeof ApiRuntimeServiceHealthRoute
+  '/api/runtime/verify': typeof ApiRuntimeVerifyRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/dashboard': typeof DashboardRoute
+  '/connect-flow': typeof ConnectFlowRoute
   '/login': typeof LoginRoute
+  '/mental-model': typeof MentalModelRoute
+  '/overview': typeof OverviewRoute
+  '/runtime-calls': typeof RuntimeCallsRoute
+  '/sdk-internals': typeof SdkInternalsRoute
+  '/api/runtime/incidents': typeof ApiRuntimeIncidentsRoute
+  '/api/runtime/roster': typeof ApiRuntimeRosterRoute
+  '/api/runtime/runbooks': typeof ApiRuntimeRunbooksRoute
+  '/api/runtime/service-health': typeof ApiRuntimeServiceHealthRoute
+  '/api/runtime/verify': typeof ApiRuntimeVerifyRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dashboard' | '/login'
+  fullPaths:
+    | '/'
+    | '/connect-flow'
+    | '/login'
+    | '/mental-model'
+    | '/overview'
+    | '/runtime-calls'
+    | '/sdk-internals'
+    | '/api/runtime/incidents'
+    | '/api/runtime/roster'
+    | '/api/runtime/runbooks'
+    | '/api/runtime/service-health'
+    | '/api/runtime/verify'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dashboard' | '/login'
-  id: '__root__' | '/' | '/dashboard' | '/login'
+  to:
+    | '/'
+    | '/connect-flow'
+    | '/login'
+    | '/mental-model'
+    | '/overview'
+    | '/runtime-calls'
+    | '/sdk-internals'
+    | '/api/runtime/incidents'
+    | '/api/runtime/roster'
+    | '/api/runtime/runbooks'
+    | '/api/runtime/service-health'
+    | '/api/runtime/verify'
+  id:
+    | '__root__'
+    | '/'
+    | '/connect-flow'
+    | '/login'
+    | '/mental-model'
+    | '/overview'
+    | '/runtime-calls'
+    | '/sdk-internals'
+    | '/api/runtime/incidents'
+    | '/api/runtime/roster'
+    | '/api/runtime/runbooks'
+    | '/api/runtime/service-health'
+    | '/api/runtime/verify'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DashboardRoute: typeof DashboardRoute
+  ConnectFlowRoute: typeof ConnectFlowRoute
   LoginRoute: typeof LoginRoute
+  MentalModelRoute: typeof MentalModelRoute
+  OverviewRoute: typeof OverviewRoute
+  RuntimeCallsRoute: typeof RuntimeCallsRoute
+  SdkInternalsRoute: typeof SdkInternalsRoute
+  ApiRuntimeIncidentsRoute: typeof ApiRuntimeIncidentsRoute
+  ApiRuntimeRosterRoute: typeof ApiRuntimeRosterRoute
+  ApiRuntimeRunbooksRoute: typeof ApiRuntimeRunbooksRoute
+  ApiRuntimeServiceHealthRoute: typeof ApiRuntimeServiceHealthRoute
+  ApiRuntimeVerifyRoute: typeof ApiRuntimeVerifyRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/sdk-internals': {
+      id: '/sdk-internals'
+      path: '/sdk-internals'
+      fullPath: '/sdk-internals'
+      preLoaderRoute: typeof SdkInternalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/runtime-calls': {
+      id: '/runtime-calls'
+      path: '/runtime-calls'
+      fullPath: '/runtime-calls'
+      preLoaderRoute: typeof RuntimeCallsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/overview': {
+      id: '/overview'
+      path: '/overview'
+      fullPath: '/overview'
+      preLoaderRoute: typeof OverviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mental-model': {
+      id: '/mental-model'
+      path: '/mental-model'
+      fullPath: '/mental-model'
+      preLoaderRoute: typeof MentalModelRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -68,11 +223,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
+    '/connect-flow': {
+      id: '/connect-flow'
+      path: '/connect-flow'
+      fullPath: '/connect-flow'
+      preLoaderRoute: typeof ConnectFlowRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -82,14 +237,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/runtime/verify': {
+      id: '/api/runtime/verify'
+      path: '/api/runtime/verify'
+      fullPath: '/api/runtime/verify'
+      preLoaderRoute: typeof ApiRuntimeVerifyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/runtime/service-health': {
+      id: '/api/runtime/service-health'
+      path: '/api/runtime/service-health'
+      fullPath: '/api/runtime/service-health'
+      preLoaderRoute: typeof ApiRuntimeServiceHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/runtime/runbooks': {
+      id: '/api/runtime/runbooks'
+      path: '/api/runtime/runbooks'
+      fullPath: '/api/runtime/runbooks'
+      preLoaderRoute: typeof ApiRuntimeRunbooksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/runtime/roster': {
+      id: '/api/runtime/roster'
+      path: '/api/runtime/roster'
+      fullPath: '/api/runtime/roster'
+      preLoaderRoute: typeof ApiRuntimeRosterRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/runtime/incidents': {
+      id: '/api/runtime/incidents'
+      path: '/api/runtime/incidents'
+      fullPath: '/api/runtime/incidents'
+      preLoaderRoute: typeof ApiRuntimeIncidentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DashboardRoute: DashboardRoute,
+  ConnectFlowRoute: ConnectFlowRoute,
   LoginRoute: LoginRoute,
+  MentalModelRoute: MentalModelRoute,
+  OverviewRoute: OverviewRoute,
+  RuntimeCallsRoute: RuntimeCallsRoute,
+  SdkInternalsRoute: SdkInternalsRoute,
+  ApiRuntimeIncidentsRoute: ApiRuntimeIncidentsRoute,
+  ApiRuntimeRosterRoute: ApiRuntimeRosterRoute,
+  ApiRuntimeRunbooksRoute: ApiRuntimeRunbooksRoute,
+  ApiRuntimeServiceHealthRoute: ApiRuntimeServiceHealthRoute,
+  ApiRuntimeVerifyRoute: ApiRuntimeVerifyRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}

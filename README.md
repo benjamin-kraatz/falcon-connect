@@ -62,22 +62,40 @@ connect/
 
 The public TypeScript integration surface lives in [packages/sdk/README.md](./packages/sdk/README.md).
 
+## Demo Apps
+
+The monorepo includes a complete demo pair that behaves like a real partner integration:
+
+- `apps/demo-01`: **Project Hub** acting as the **source app**
+- `apps/demo-02`: **Incident Ops** acting as the **target app**
+
+The pair demonstrates:
+
+- install intent creation and redirect handling
+- target-side local login and consent
+- callback parsing and `connectionId` persistence
+- runtime token minting and direct source-to-target API calls
+- local verification and forced introspection fallback
+- low-level SDK helpers on dedicated `sdk-internals` routes
+
 ## Running Locally
 
 ### Running the Demo Apps
 
 ```bash
-# Start a single demo app
+# Start Falcon Connect first
+bun run dev:server
+
+# Start the source app
 bun run dev:demo-01
-# and
+
+# Start the target app
 bun run dev:demo-02
-
-# or start both demo apps
-bun run dev:demo-all
-
 ```
 
 > This will start the demo apps at [http://localhost:**4101**](http://localhost:4101) for the source app and [http://localhost:**4102**](http://localhost:4102) for the target app respectively.
+
+The local Falcon server runs at [http://localhost:3000](http://localhost:3000) and automatically bootstraps the demo trusted apps, keys, callback URL, and target scopes.
 
 ## Stack
 
@@ -142,6 +160,8 @@ For more details, see the guide on [Deploying to Cloudflare with Alchemy](https:
 - `bun run build`: Build all applications
 - `bun run dev:web`: Start only the dashboard application
 - `bun run dev:server`: Start only the server
+- `bun run dev:demo-01`: Start the Project Hub source-app demo
+- `bun run dev:demo-02`: Start the Incident Ops target-app demo
 - `bun run check-types`: Check TypeScript types across all apps
 - `bun run db:push`: Push schema changes to database
 - `bun run db:generate`: Generate database client/types
