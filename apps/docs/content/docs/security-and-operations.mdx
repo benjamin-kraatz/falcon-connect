@@ -1,0 +1,70 @@
+---
+title: Security and Operations
+description: Trust boundaries, replay protection, state changes, and operator workflows.
+icon: ShieldCheck
+---
+
+# Security and Operations
+
+Falcon Connect is an infrastructure product, which means the quality of the integration depends as much on operational correctness as it does on protocol correctness.
+
+This page explains the practical security and operations model behind the current implementation.
+
+## Replay Protection
+
+Signed partner requests include both a timestamp and a nonce. The timestamp limits how long a captured request could remain valid. The nonce lets Falcon detect replay even inside that acceptable clock window.
+
+That means a request can fail even when the signature itself is correct. If the same nonce is seen twice for the same app, Falcon rejects it. This is expected behavior and should not be treated as a random transient error.
+
+## Key Separation
+
+There are two distinct signing domains in the system.
+
+Partner apps use their own private keys to authenticate requests **to Falcon**.
+
+Falcon uses its own private signing key to issue runtime JWTs **to partner apps**.
+
+Do not mix those concepts. A partner app's request-signing key is not the same thing as Falcon's runtime-token signing key, and rotating one should not require rotating the other.
+
+## Paused and Revoked Connections
+
+Connection state is operationally significant. A paused connection is not equivalent to a revoked one.
+
+Paused means the relationship still exists as a managed object, but runtime traffic should not be honored until it is reactivated. Revoked means the relationship has been explicitly ended and should be treated as invalid until a new approval cycle or reactivation policy says otherwise.
+
+From a target app's perspective, both states should cause runtime verification to fail. The difference is primarily in operator intent and lifecycle semantics.
+
+## Dashboard Role
+
+The Falcon dashboard in v1 is an internal operations console. It is not the end-user portal for managing integrations.
+
+Operators use it to inspect trusted apps, inspect install intents, inspect active, paused, and revoked connections, review audit history, and pause, revoke, or reactivate connections.
+
+That design keeps partner UX inside partner apps while giving Falcon staff a single place to reason about platform state.
+
+## Why Audit Events Matter
+
+In early integration systems, teams often underinvest in auditability because they are focused on getting the happy path to work. That becomes painful very quickly once real partner traffic starts flowing.
+
+Falcon audit events exist so operators can answer questions such as:
+
+- when was this install intent created?
+- who denied the request?
+- when was the connection paused?
+- when was the last introspection call observed?
+- when was the runtime token issued?
+
+Without that history, support quickly turns into guesswork.
+
+## Operational Advice for Partners
+
+Treat Falcon state changes as normal distributed-system events.
+
+Your integration should expect that:
+
+- a connection may become paused after it was previously active
+- a connection may be revoked between two runtime calls
+- the target app may need to introspect Falcon because local verification is stale
+- a user may reconnect the same app pair and change optional scopes
+
+If your implementation assumes a connection is immutable once created, you will eventually hit incorrect behavior.

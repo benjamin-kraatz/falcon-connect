@@ -1,0 +1,72 @@
+---
+title: Quickstart
+description: The fastest way to understand the integration flow end to end.
+icon: Rocket
+---
+
+# Quickstart
+
+If you need the shortest useful explanation before you start reading protocol details, this page is it.
+
+There are always three parties involved in a Falcon Connect integration:
+
+- the **source app**, which wants to call another app
+- the **target app**, which owns the data or capability
+- **Falcon Connect**, which manages the connection record and verification artifacts
+
+The integration feels much easier once you stop thinking of Falcon Connect as a transport layer and start thinking of it as a control plane. The source app and target app still communicate directly with each other. Falcon Connect exists to standardize the steps around that communication.
+
+## What You Need From Falcon Before You Start
+
+Before you can integrate, Falcon staff must insert your trusted app record into the Falcon Connect database. That record contains the metadata Falcon uses to recognize your application and validate your requests.
+
+At minimum, Falcon needs:
+
+- your trusted app id
+- a slug and display name
+- the target-app consent route, if your app can receive installation requests
+- the base URL where your runtime data API lives
+- the callback URLs your app is allowed to use after consent
+- your active public signing key
+- the list of scopes your app exposes, if your app is a target app
+
+Your team keeps the corresponding private JWK on your side. Falcon never needs that private key.
+
+## The End-to-End Flow
+
+The complete flow in v1 is:
+
+1. The source app creates an install intent in Falcon Connect.
+2. Falcon validates the request and returns a signed install intent token and a target-app connect URL.
+3. The user is redirected to the target app.
+4. The target app resolves the install intent with Falcon.
+5. The target app authenticates the user locally and renders consent.
+6. The target app approves or denies the request.
+7. Falcon stores the directional connection and returns a callback URL for the source app.
+8. Later, the source app mints a short-lived runtime token and calls the target app directly.
+9. The target app verifies the token locally and introspects Falcon when needed.
+
+## The Actual Endpoints
+
+The current partner-facing server endpoints are:
+
+```text
+POST /v1/install-intents
+POST /v1/install-intents/resolve
+POST /v1/install-intents/decision
+POST /v1/connections/access-token
+POST /v1/connections/introspect
+GET  /.well-known/jwks.json
+```
+
+Every `POST /v1/*` request is authenticated as a trusted app through Falcon request-signing headers. Falcon Connect does not use dashboard user sessions for partner app traffic.
+
+## The Most Important Concepts to Keep Straight
+
+The most common source of confusion is mixing up install-time and runtime behavior.
+
+At install time, the user is redirected from the source app to the target app so the target app can authenticate the user and collect consent. Falcon Connect tracks the state of that installation process.
+
+At runtime, there is no user redirect. The source app simply asks Falcon for a short-lived connection token and then sends a direct request to the target app. The target app verifies the token and either accepts or rejects the request.
+
+Another common source of confusion is directionality. Connections are one-way by design. A connection from App A to App B means App A may call App B within the granted scopes. If App B also needs to call App A, that must be installed as a second connection.

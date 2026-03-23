@@ -1,72 +1,60 @@
 ---
 title: FALCON Connect
-description: Control plane documentation for trusted app-to-app integrations.
+description: The partner-facing handbook for building on the Falcon Connect control plane.
 icon: Shield
 ---
 
 # FALCON Connect
 
-FALCON Connect is a registry and verification control plane for partner app integrations.
+FALCON Connect is a registry and verification control plane for trusted app-to-app integrations. It exists for a very specific problem: applications often need to exchange related data across product boundaries, but every pair of applications should not have to invent its own onboarding, consent, verification, and revocation model.
 
-It does not proxy or transport business data. Instead, it manages the lifecycle that lets one trusted app call another app directly with a Falcon-issued verification token.
+That is the role of Falcon Connect. It standardizes the infrastructure around the integration while leaving the actual domain data exchange in the hands of the participating applications.
 
-## V1 Guarantees
+In other words, Falcon Connect does **not** transport your invoices, orders, catalog entries, or fulfillment records. App A still talks directly to App B. What Falcon Connect manages is the question of whether that relationship exists, under which identity and organization scope it exists, which scopes were granted, and how App B can verify a runtime request without building a custom partner verification stack from scratch.
 
-- trusted apps are inserted manually by Falcon staff
-- connections are directional: `App A -> App B`
-- connection state is scoped to `falconSubjectId + organizationId`
-- the target app owns the end-user consent page
-- runtime verification is hybrid:
-  - local JWT verification against Falcon JWKS
-  - Falcon introspection fallback for expiry or state rechecks
+## The Mental Model
 
-## Main Components
+If OAuth is a useful reference point in your head, Falcon Connect occupies a parallel space for service integration rather than for authentication.
 
-| Component     | Responsibility                                                        |
-| ------------- | --------------------------------------------------------------------- |
-| Falcon server | Registry, install intents, connections, token issuance, introspection |
-| Source app    | Creates install intents and later mints connection access tokens      |
-| Target app    | Resolves install intents, hosts consent, verifies runtime tokens      |
-| Dashboard     | Internal Falcon ops console                                           |
-| SDK           | Shared TypeScript client and crypto helpers                           |
+The closest analogy is this:
 
-## Typical Flow
+- the **source app** is the application that wants to call another application
+- the **target app** is the application that exposes the data or capability
+- Falcon Connect is the shared control plane that knows whether the relationship exists and how it should be verified
 
-1. The source app creates an install intent in Falcon.
-2. Falcon validates the request and returns a signed install intent token.
-3. The user is redirected to the target app.
-4. The target app resolves the intent, authenticates the user locally, and renders consent.
-5. The target app approves or denies the request.
-6. Falcon creates or updates the directional connection.
-7. The source app later mints a short-lived runtime token to call the target app directly.
+This distinction matters because it explains a design choice that appears everywhere in the system: Falcon Connect manages **connection state**, not domain payloads.
 
-## Next
+## What V1 Supports
 
-- Read [Architecture](./architecture)
-- Start with [Source App Integration](./source-app-integration)
-- Continue with [Target App Integration](./target-app-integration)
-- Review [Runtime Verification](./runtime-verification)
+The current implementation is opinionated on purpose. Partner-facing documentation should make those constraints explicit rather than leave them implicit.
 
-## Heading
+- Trusted apps are registered manually by Falcon staff.
+- Connections are directional. If App A can call App B, that does not imply that App B can call App A.
+- Connection state is keyed by `falconSubjectId` and `organizationId`.
+- The target app owns the actual user authentication and consent screen.
+- Runtime verification is hybrid: local JWT verification first, Falcon introspection when local verification is insufficient or stale.
+- The first mandatory Falcon system scope is `read:app-info`.
 
-Hello World!
+## What This Documentation Covers
 
-<Cards>
-  <Card title="Learn more about Tanstack Start" href="https://tanstack.com/start" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
-</Cards>
+This documentation is written for partner engineers who need to integrate an application with Falcon Connect. It focuses on the protocol and implementation details that matter when you are building the integration, not just on the product story.
 
-### CodeBlock
+The recommended reading order is:
 
-```ts
-console.log("Hello World");
-```
+1. [Quickstart](./quickstart) for the shortest path to understanding the flow.
+2. [Registration and Keys](./registration-and-keys) to understand trusted app metadata and request signing.
+3. [Connection Lifecycle](./connection-lifecycle) to see the full protocol from install intent to live runtime calls.
+4. [Source App Integration](./source-app-integration) if you are building the calling side.
+5. [Target App Integration](./target-app-integration) if you are building the receiving side.
+6. [Runtime Verification](./runtime-verification) for the runtime token contract.
+7. [Architecture](./architecture) for the resource model and trust boundaries.
+8. [Security and Operations](./security-and-operations) for replay protection, state transitions, and the ops model.
+9. [Troubleshooting](./troubleshooting) when things go wrong.
 
-#### Table
+## A Short Narrative Example
 
-| Head                            | Description                         |
-| ------------------------------- | ----------------------------------- |
-| `hello`                         | Hello World                         |
-| very **important**              | Hey                                 |
-| _Surprisingly_                  | Fumadocs                            |
-| very long text that looks weird | hello world hello world hello world |
+Imagine an invoice application and an order management application. A user is viewing an invoice and wants to enrich it with the order data it originated from. Without Falcon Connect, both teams need to negotiate integration rules directly: how apps are identified, how keys are exchanged, how a user consents, how revocation works, and how every runtime request is verified.
+
+With Falcon Connect, the source app creates an install intent for the target app. The user is redirected to the target app, signs in there if needed, sees which scopes are being requested, and approves the connection. Falcon Connect stores that directional relationship. Later, when the invoice application wants to call the order application, it mints a Falcon-issued runtime token for the established connection. The order application verifies that token locally, and when necessary asks Falcon for an authoritative state check.
+
+That is the whole product in one paragraph: Falcon Connect turns partner integration state into a standard, reusable control plane.

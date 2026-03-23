@@ -1,58 +1,74 @@
 ---
 title: Architecture
-description: Falcon Connect data model and runtime boundaries.
+description: Core resource model, trust boundaries, and state transitions.
 icon: Network
 ---
 
 # Architecture
 
-## What Falcon Connect Stores
+The Falcon Connect architecture is easiest to understand if you separate three concerns that often get mixed together in integration projects:
 
-Falcon Connect persists:
+1. who the apps are
+2. whether a directional relationship exists
+3. how runtime requests are verified
 
-- trusted app manifests
-- trusted app signing keys
-- target-app scope declarations
-- install intents
-- directional connections
-- per-connection scope grants
-- audit events
-- used app-request nonces for replay protection
+Falcon Connect has explicit resources for all three.
 
-## What Falcon Connect Does Not Store
+## Trusted Apps
 
-Falcon Connect does not store or proxy partner business payloads. App A still calls App B directly at App B's own data API base URL.
+The root of the model is the trusted app record. Falcon uses it to answer the question, "Which partner application is talking to me, and where should other apps be redirected when they want to connect to it?"
 
-## Directionality
+Trusted app records contain routing metadata such as callback URLs and connect request URLs, but they also carry the public keys that Falcon uses to verify signed partner requests. That is why registration is a prerequisite rather than an optional administrative step.
 
-Connections are one-way.
+## Install Intents
 
-If App A is connected to App B, App A can call App B. App B cannot call App A unless a second connection is installed separately.
+An install intent is a temporary resource. It captures an in-progress connection request before the user has approved anything. It knows which source app initiated the request, which target app should receive it, which Falcon subject and organization it concerns, which scopes are being requested, where the source app wants the user to be returned afterward, and when the request expires.
 
-## Subject Model
+This distinction is important because an install intent is not yet a live connection. It is simply the control-plane record of an integration request that is in flight.
 
-V1 uses:
+## Directional Connections
 
-- `falconSubjectId`
-- `organizationId`
+The connection record is the durable runtime object. It exists only after the target app has approved the request. Falcon stores it as a directional relationship from one app to another, scoped to a Falcon subject and organization.
 
-Those values are supplied by trusted apps today and are intentionally shaped so Falcon Auth can become the canonical issuer later without breaking the SDK contract.
+Directionality is a core design choice, not an implementation detail. It prevents a vague "apps are connected" state from hiding which side is allowed to initiate runtime traffic.
 
-## Consent Rules
+## Scope Grants
 
-- target apps declare scopes
-- Falcon system scopes are always included
-- required scopes are locked on
-- optional scopes are toggleable
-- the final granted set is stored on the connection record
+The target app declares the scopes it supports. Falcon stores the final granted scope set on the connection record. That means runtime verification can answer a concrete question: not just "is there a connection?" but "what did the target app actually grant?"
 
-## Runtime Verification
+This is also the reason optional scope toggles happen at consent time instead of being left entirely up to app-specific conventions.
 
-Falcon signs short-lived connection access tokens with its signing JWK.
+## Audit Events and Nonces
 
-Target apps:
+Two secondary resources are worth calling out because they are easy to overlook:
 
-1. verify locally against Falcon JWKS
-2. introspect with Falcon when local verification is insufficient
+- audit events, which give the connection lifecycle an operational history
+- stored nonces, which let Falcon reject replayed partner requests inside the accepted timestamp window
 
-That gives the normal path low latency while keeping revocation authoritative.
+They are not the core business model, but they are critical to the trust model and to supportability.
+
+## Trust Boundaries
+
+There are several trust boundaries in the system, and partner teams should understand them clearly.
+
+Falcon trusts a partner request only after verifying the request signature against the public key registered for that trusted app.
+
+The target app does not trust a redirect alone. It resolves the install intent with Falcon and authenticates the user locally before consent.
+
+The target app does not trust a source-app runtime request just because the source app claims a connection exists. It verifies the Falcon-issued runtime JWT and falls back to introspection when needed.
+
+Falcon itself does not infer identity out of thin air in v1. The trusted apps provide `falconSubjectId` and `organizationId`, and Falcon stores them in a shape that can be aligned with Falcon Auth later.
+
+## What Falcon Connect Deliberately Does Not Do
+
+A good architecture document also describes what is intentionally absent.
+
+Falcon Connect does not:
+
+- transport business payloads between apps
+- host the target app's consent UI in v1
+- authenticate end users into partner apps
+- define your application-level API design
+- decide how your scopes map to concrete business operations
+
+Those responsibilities remain with the partner applications themselves.

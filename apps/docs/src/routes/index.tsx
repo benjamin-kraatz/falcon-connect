@@ -10,16 +10,27 @@ export const Route = createFileRoute("/")({
 function Home() {
   return (
     <HomeLayout {...baseOptions()}>
-      <div className="flex flex-col flex-1 justify-center px-4 py-8 text-center">
-        <h1 className="font-medium text-xl mb-4">Fumadocs on Tanstack Start.</h1>
+      <div className="flex flex-1 flex-col justify-center px-4 py-8 text-center">
+        <div className="mx-auto max-w-3xl space-y-4">
+          <p className="text-sm uppercase tracking-[0.35em] text-fd-muted-foreground">
+            Partner Handbook
+          </p>
+          <h1 className="text-4xl font-medium tracking-tight">
+            Build directional app integrations on top of FALCON Connect
+          </h1>
+          <p className="text-base text-fd-muted-foreground">
+            These docs explain trusted app registration, signed install intents, target-app consent,
+            Falcon-issued runtime verification tokens, and fallback introspection.
+          </p>
+        </div>
         <Link
           to="/docs/$"
           params={{
             _splat: "",
           }}
-          className="px-3 py-2 rounded-lg bg-fd-primary text-fd-primary-foreground font-medium text-sm mx-auto"
+          className="mx-auto mt-6 rounded-lg bg-fd-primary px-4 py-2 text-sm font-medium text-fd-primary-foreground"
         >
-          Open Docs
+          Open the partner docs
         </Link>
       </div>
     </HomeLayout>

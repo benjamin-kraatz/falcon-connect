@@ -1,0 +1,68 @@
+---
+title: Troubleshooting
+description: Common failure modes and how to reason about them.
+icon: TriangleAlert
+---
+
+# Troubleshooting
+
+Integration problems are usually easier to diagnose if you first decide which phase of the system you are in.
+
+Are you failing during install creation, target-side consent, source-app callback handling, runtime token issuance, or target-side runtime verification? The answer determines where to look.
+
+## Install Intent Creation Fails
+
+If `POST /v1/install-intents` fails, the most common causes are:
+
+- the source app id is unknown
+- the key id is unknown
+- the request signature is invalid
+- the callback URL is not in the source app allowlist
+- one or more requested scopes are not declared by the target app
+
+If the failure looks intermittent, check the timestamp and nonce behavior before anything else. A stale clock or nonce reuse can look surprising if you are focused only on the signature bytes.
+
+## The User Reaches the Target App but the Intent Cannot Be Resolved
+
+When the target app cannot resolve the install token, the likely causes are:
+
+- the install intent expired
+- the token audience does not match the target app
+- the target app is using the wrong trusted app identity when talking back to Falcon
+- the token was altered or truncated in redirect handling
+
+Always log the target app id, the received token presence, and the resulting Falcon error code. Without those basics, debugging becomes far more expensive than it needs to be.
+
+## Consent Succeeds but the Source App Does Not See a Connection
+
+This usually means the redirect flow completed but the source app did not persist or process the callback state correctly.
+
+Inspect the callback query parameters carefully: `falcon_connect_status`, `falcon_connect_connection_id`, `falcon_connect_intent_id`, and `falcon_connect_reason`.
+
+The source app should treat those parameters as the authoritative result of the install flow.
+
+## Runtime Token Issuance Fails
+
+If the source app cannot mint a runtime token, ask whether the connection id belongs to that source app, whether the connection is still active, and whether the connection was paused or revoked after installation.
+
+Because connection state is mutable, a source app should not assume a previously valid `connectionId` can always mint a new token forever.
+
+## The Target App Rejects a Runtime Token
+
+When a target app rejects a Falcon token, separate local verification failures from introspection failures.
+
+Local verification failures usually involve expired tokens, audience mismatch, stale JWKS cache, or malformed JWTs.
+
+Introspection failures usually involve inactive connection state, connection not found, target app mismatch, or revoked or paused relationships.
+
+## A Practical Debugging Sequence
+
+When in doubt, use this order:
+
+1. verify that the trusted app identity and key id are correct
+2. verify that the callback URL or target app id is the one Falcon expects
+3. verify that the install or runtime token has the expected audience
+4. verify the current connection status in the Falcon dashboard
+5. verify whether the target app is failing on local JWT validation or on Falcon introspection
+
+That sequence usually gets you to the root cause much faster than starting from the UI symptom alone.
