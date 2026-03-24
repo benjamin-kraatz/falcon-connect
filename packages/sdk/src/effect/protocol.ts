@@ -119,8 +119,7 @@ export type ScopeDescriptor = typeof ScopeDescriptor.Type;
 /**
  * Public trusted-app record: identity, URLs, support contacts, and offered scopes.
  *
- * Used when rendering install flows and resolving app metadata (mirrors the Zod
- * `trustedAppManifestSchema` in the main SDK protocol module).
+ * Useful when rendering install flows and resolving app metadata.
  */
 export const TrustedAppManifest = Schema.Struct({
   /** Trusted app identifier. */
@@ -152,8 +151,7 @@ export type TrustedAppManifest = typeof TrustedAppManifest.Type;
 /**
  * Payload to create an install intent: which target app, subject/org, scopes, and return URL.
  *
- * Corresponds to `createInstallIntentInputSchema` in the Zod protocol (timestamps encoded
- * as ISO strings there; here `expiresInSeconds` is a number as in the wire contract).
+ * Wire payload for creating an install intent (`expiresInSeconds` is a number per the HTTP contract).
  */
 export const CreateInstallIntentInput = Schema.Struct({
   /** Trusted app id the user is connecting to. */
@@ -308,6 +306,15 @@ export const FindConnectionInput = Schema.Struct({
 });
 /** Inferred type for {@link FindConnectionInput}. */
 export type FindConnectionInput = typeof FindConnectionInput.Type;
+
+/** Look up an incoming connection by source app, subject, and org (target-side). */
+export const FindIncomingConnectionInput = Schema.Struct({
+  sourceAppId: Schema.NonEmptyString,
+  falconSubjectId: Schema.NonEmptyString,
+  organizationId: Schema.NonEmptyString,
+});
+/** Inferred type for {@link FindIncomingConnectionInput}. */
+export type FindIncomingConnectionInput = typeof FindIncomingConnectionInput.Type;
 
 /** Claims carried in a connection access token (JWT-style). */
 export const ConnectionAccessTokenClaims = Schema.Struct({

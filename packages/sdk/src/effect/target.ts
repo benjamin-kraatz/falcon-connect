@@ -1,24 +1,30 @@
-import { Context, Effect, Option, Schema } from "effect";
-import type { DecideInstallIntentInput, IntrospectConnectionInput } from "../protocol";
-import { FALCON_CONNECT_API_ENDPOINTS, FalconConnectApiEndpoint } from "./constants";
-import { createFalconAppAuthHeaders } from "./crypto";
+import { Context, Effect, Either, Schema } from "effect";
+import { FALCON_CONNECT_API_ENDPOINTS } from "./constants";
+import { decodeJwtUnsafeEffect, verifyConnectionAccessTokenEffect } from "./crypto";
 import {
-  ErrorResponseJsonExtractionError,
-  ErrorResponseTextExtractionError,
-  HttpResponseError,
-  OutputParseError,
-  ResolveInstallIntentRequestError,
-  SignedJsonRequestError,
-  SignedRequestHeaderCreationError,
+  FalconConnectSignedRequestError,
+  InvalidIntentTokenError,
+  VerifyConnectionTokenError,
 } from "./errors";
 import {
+  ConnectionAccessTokenClaims,
+  ConnectionRecord,
+  DecideInstallIntentInput,
   DecideInstallIntentResult,
+  FindIncomingConnectionInput,
+  IntrospectConnectionInput,
+  IntrospectionResult,
   ResolvedInstallIntent,
   ResolveInstallIntentInput,
+  UpdateConnectionStatusInput,
 } from "./protocol";
-import { AppId, FalconRequestUrl, IntentToken } from "./types";
-
-const globalFetchFallback = () => globalThis.fetch as typeof fetch;
+import {
+  type FalconConnectSignedHttpConfig,
+  signedJsonRequest,
+  signedJsonRequestNullableConnection,
+} from "./signedHttp";
+import { AppId, IntentToken } from "./types";
+import { normalizeGrantedScopes } from "./ui";
 
 /**
  * Runtime schema branch for a signing key: either a JSON string or a plain object.
@@ -30,9 +36,9 @@ const privateJwk = Schema.Union(
 );
 
 /**
- * Definition for target-client options.
+ * Effect `Schema` for {@link FalconConnectTargetClientOptions} (decoded shape used by the target service).
  *
- * @see {@link FalconConnectTargetClientOptions}
+ * @see {@link FalconConnectTargetClientOptions} — TypeScript type with refined `privateJwk` / `fetch`.
  */
 export const FalconConnectTargetClientOptions = Schema.Struct({
   baseUrl: Schema.URL,
@@ -43,21 +49,20 @@ export const FalconConnectTargetClientOptions = Schema.Struct({
    * Injected fetch implementation (optional). If omitted, the global `fetch` is used.
    *
    * The schema only verifies that the value is a `Function` when present. Callers should pass
-   * the same `fetch` they rely on at runtime (e.g. `globalThis.fetch` in browsers or Workers).
+   * the same `fetch` they rely on at runtime (for example `globalThis.fetch` in browsers or Workers).
    */
   fetch: Schema.optional(Schema.instanceOf(Function)),
 });
 
 /**
- * Options for the Falcon Connect **target** client (trusted app calling the Connect HTTP API).
+ * Options for the Falcon Connect **target** client (the trusted app calling the Connect HTTP API).
  *
- * It is based on the decoded type of {@link FalconConnectTargetClientOptions} (the schema
- * value above), with **`privateJwk`** and **`fetch`** re-declared so TypeScript matches
- * downstream APIs:
+ * Mirrors the decoded type of {@link FalconConnectTargetClientOptions} (the schema above), with
+ * **`privateJwk`** and **`fetch`** re-declared so TypeScript matches downstream APIs:
  *
- * - **`privateJwk`** – `JsonWebKey` or a string of JSON (what `createFalconAppAuthHeaders` in
- *   `crypto` expects). The schema still only validates “string or object”, not every JWK field.
- * - **`fetch`** – `typeof fetch` so request calls are typed as the standard Fetch API. The
+ * - **`privateJwk`** — `JsonWebKey` or a string of JSON (what `createFalconAppAuthHeaders` in `./crypto`
+ *   expects). The schema still only validates “string or object”, not every JWK field.
+ * - **`fetch`** — `typeof fetch` so request calls are typed as the standard Fetch API. The
  *   schema still only checks for an optional `Function`.
  */
 export type FalconConnectTargetClientOptions = Omit<
@@ -69,126 +74,25 @@ export type FalconConnectTargetClientOptions = Omit<
 };
 
 /**
- * Union of JSON request bodies accepted by {@link signedJsonRequest} for signed Connect API routes
- * (install intents, connection introspection, etc.).
+ * Maps target client options into the shared signed-HTTP config (drops `undefined` optional `fetch`
+ * so `exactOptionalPropertyTypes` stays satisfied).
  */
-type SignedJsonRequestBody =
-  | DecideInstallIntentInput
-  | IntrospectConnectionInput
-  | ResolveInstallIntentInput;
-
-/**
- * Sends a **signed** `POST` request to the Falcon Connect HTTP API and decodes the JSON response.
- *
- * Builds the request URL (`new URL(route, baseUrl)`), encodes the body as JSON, attaches Falcon app
- * auth headers from {@link createFalconAppAuthHeaders}, and sends the request with `fetch` (from
- * `config.fetch` or `globalThis.fetch`).
- *
- * **Request pipeline**
- *
- * 1. Resolve the absolute URL from `config.baseUrl` and `route`.
- * 2. Encode `input` as a JSON string with Effect’s `Schema.String` decoder (equivalent to
- *    `JSON.stringify` for typical objects; the string is what gets signed and sent).
- * 3. Create signed headers for `POST` with that body and URL.
- * 4. `POST` with `content-type: application/json` and the signed headers.
- * 5. On HTTP success (`response.ok`), parse JSON and validate with `outputSchema`.
- *
- * **Failure modes** (typed failures, not thrown exceptions)
- *
- * - {@link SignedRequestHeaderCreationError} — signing or header construction failed.
- * - {@link SignedJsonRequestError} — the `fetch` call itself failed (network, abort, etc.).
- * - {@link HttpResponseError} — non-2xx status; `body` is the response text (for debugging).
- * - {@link ErrorResponseTextExtractionError} — could not read error body text on non-2xx.
- * - {@link ErrorResponseJsonExtractionError} — could not parse JSON on success path.
- * - {@link OutputParseError} — response JSON did not match `outputSchema`.
- *
- * @typeParam TInput - Request body type; must be one of the signed JSON payload shapes.
- * @typeParam TOutput - Decoded success type from `outputSchema`.
- *
- * @param config - Target client options (base URL, app id, key id, private JWK, optional `fetch`).
- * @param input - Value encoded as the JSON request body (and included in the signature).
- * @param outputSchema - Effect `Schema` used to decode and validate the response JSON.
- * @param route - Path relative to `config.baseUrl` (e.g. `"/v1/install-intents/resolve"`).
- *
- * @returns An effect that succeeds with `TOutput` or fails with one of the errors above.
- *
- * @remarks
- * A future refactor may use Effect’s `HttpClient` instead of `fetch` directly; behavior should
- * remain equivalent for callers.
- */
-const signedJsonRequest = Effect.fn("signedJsonRequest")(function* <
-  TInput extends SignedJsonRequestBody,
-  TOutput,
->(
-  config: FalconConnectTargetClientOptions,
-  input: TInput,
-  outputSchema: Schema.Schema<TOutput, any, never>,
-  route: FalconConnectApiEndpoint,
-) {
-  const requestUrl = new URL(route, config.baseUrl);
-  const body = yield* Schema.decodeUnknownEither(Schema.String)(input);
-  const authHeaders = yield* createFalconAppAuthHeaders({
-    appId: config.appId,
-    keyId: config.keyId,
-    privateJwk: config.privateJwk,
-    method: "POST",
-    url: requestUrl.toString(),
-    body,
-  }).pipe(
-    Effect.mapError((cause) => {
-      return new SignedRequestHeaderCreationError({
-        appId: config.appId,
-        requestUrl: FalconRequestUrl.make(requestUrl),
-        cause,
-      });
-    }),
-  );
-
-  // TODO: replace with Effect's HttpClient? This way we can also kill the fetch fallback struggling.
-  const response = yield* Effect.tryPromise({
-    try: async () => {
-      return (await (config.fetch ?? globalFetchFallback())(requestUrl, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          ...authHeaders,
-        },
-        body,
-      })) as Response;
-    },
-    catch: (cause) => {
-      return new SignedJsonRequestError({
-        appId: config.appId,
-        requestUrl: FalconRequestUrl.make(requestUrl),
-        cause,
-      });
-    },
-  });
-
-  if (!response.ok) {
-    const errorBody = yield* Effect.tryPromise({
-      try: () => response.text(),
-      catch: (cause) => new ErrorResponseTextExtractionError({ cause }),
-    });
-    return yield* new HttpResponseError({ status: response.status, body: errorBody });
-  }
-
-  const json = yield* Effect.tryPromise({
-    try: () => response.json(),
-    catch: (cause) => new ErrorResponseJsonExtractionError({ cause }),
-  });
-
-  return yield* Schema.decodeUnknown(outputSchema)(json).pipe(
-    Effect.mapError((cause) => new OutputParseError({ cause })),
-  );
-});
+function toSignedConfig(options: FalconConnectTargetClientOptions): FalconConnectSignedHttpConfig {
+  const base: FalconConnectSignedHttpConfig = {
+    baseUrl: options.baseUrl,
+    appId: options.appId,
+    keyId: options.keyId,
+    privateJwk: options.privateJwk,
+  };
+  return options.fetch !== undefined ? { ...base, fetch: options.fetch } : base;
+}
 
 /**
  * Shape of the Falcon Connect **target** API exposed as Effect programs.
  *
- * Covers the trusted-app HTTP surface (resolve / decide install intents, introspect connections,
- * etc.). Only {@link FalconConnectTargetServiceDef.resolveInstallIntent} is implemented today; other
- * endpoints are reserved for future work.
+ * Covers the trusted-app HTTP surface: install intent resolution and decisions, connection
+ * introspection, incoming connection lookup, status updates, and optional local JWT verification
+ * with introspection fallback.
  */
 export interface FalconConnectTargetServiceDef {
   /**
@@ -199,32 +103,95 @@ export interface FalconConnectTargetServiceDef {
    *
    * @param intentToken - Opaque token identifying the pending install intent.
    *
-   * @returns An effect that succeeds with the resolved intent or fails with
-   * {@link ResolveInstallIntentRequestError} (wrapping failures from {@link signedJsonRequest} or
-   * validation). **Note:** invalid `intentToken` input currently surfaces as a defect via
-   * `Effect.die` until validation errors are modeled explicitly.
+   * @returns An effect that succeeds with the resolved intent, or fails with
+   * {@link InvalidIntentTokenError} if the token shape is invalid, or {@link FalconConnectSignedRequestError}
+   * (with `operation: "resolveInstallIntent"`) for HTTP, signing, or response decode failures.
    */
   resolveInstallIntent: (
     intentToken: IntentToken,
-  ) => Effect.Effect<ResolvedInstallIntent, ResolveInstallIntentRequestError>;
-  // approveInstallIntent: (input: {
-  //   intent: ResolvedInstallIntent;
-  //   intentToken: IntentToken;
-  //   selectedScopeNames?: ReadonlyArray<string>;
-  // }) => Effect.Effect<DecideInstallIntentResult>;
-  // submitInstallIntentDecision: (
-  //   input: DecideInstallIntentInput,
-  // ) => Effect.Effect<DecideInstallIntentResult>;
-  // introspectConnection: (input: IntrospectConnectionInput) => Effect.Effect<IntrospectionResult>;
-  // verifyConnectionToken: (input: {
-  //   token: string;
-  //   allowIntrospectionFallback?: boolean;
-  // }) => Effect.Effect<void>;
+  ) => Effect.Effect<
+    ResolvedInstallIntent,
+    InvalidIntentTokenError | FalconConnectSignedRequestError
+  >;
+
+  /**
+   * Approves the install intent with optional scope selection (convenience over {@link submitInstallIntentDecision}).
+   *
+   * Builds a {@link DecideInstallIntentInput} with `approved: true`, `grantedScopes` from
+   * {@link normalizeGrantedScopes}, then calls `POST /v1/install-intents/decision` and decodes
+   * {@link DecideInstallIntentResult}.
+   *
+   * @param input.intent - Resolved intent (for scope metadata and normalization).
+   * @param input.intentToken - Same token passed to {@link resolveInstallIntent}.
+   * @param input.selectedScopeNames - Optional subset of scope names; defaults follow intent `selected` flags.
+   */
+  approveInstallIntent: (input: {
+    intent: ResolvedInstallIntent;
+    intentToken: IntentToken;
+    selectedScopeNames?: ReadonlyArray<string>;
+  }) => Effect.Effect<DecideInstallIntentResult, FalconConnectSignedRequestError>;
+
+  /**
+   * Submits a full approve/deny decision for an install intent.
+   *
+   * Calls `POST /v1/install-intents/decision` with a validated {@link DecideInstallIntentInput}.
+   */
+  submitInstallIntentDecision: (
+    input: DecideInstallIntentInput,
+  ) => Effect.Effect<DecideInstallIntentResult, FalconConnectSignedRequestError>;
+
+  /**
+   * Introspects a connection by id and/or connection token.
+   *
+   * Calls `POST /v1/connections/introspect` and decodes {@link IntrospectionResult}.
+   */
+  introspectConnection: (
+    input: IntrospectConnectionInput,
+  ) => Effect.Effect<IntrospectionResult, FalconConnectSignedRequestError>;
+
+  /**
+   * Finds an incoming connection for this target app (by source app, subject, org).
+   *
+   * Calls `POST /v1/connections/incoming`. The API may return JSON `null` when no row exists; that
+   * decodes to `null` rather than an error.
+   */
+  findIncomingConnection: (
+    input: FindIncomingConnectionInput,
+  ) => Effect.Effect<ConnectionRecord | null, FalconConnectSignedRequestError>;
+
+  /**
+   * Updates connection lifecycle status (active / paused / revoked).
+   *
+   * Calls `POST /v1/connections/status` and decodes {@link ConnectionRecord}.
+   */
+  updateConnectionStatus: (
+    input: UpdateConnectionStatusInput,
+  ) => Effect.Effect<ConnectionRecord, FalconConnectSignedRequestError>;
+
+  /**
+   * Verifies a connection access token: first via JWKS (`verifyConnectionAccessTokenEffect` in `crypto.ts`),
+   * or when `allowIntrospectionFallback` is true and local verification fails, via
+   * `decodeJwtUnsafeEffect` plus the signed `POST /v1/connections/introspect` path (same payload as
+   * {@link introspectConnection}).
+   *
+   * This is **not** a signed Connect route; it composes crypto + optional HTTP introspection only.
+   *
+   * @param input.token - JWT or opaque token string from the connection handoff.
+   * @param input.allowIntrospectionFallback - When true and local JWT verification fails, decode claims
+   *   without verification and call introspection on the Connect API.
+   */
+  verifyConnectionToken: (input: {
+    token: string;
+    allowIntrospectionFallback?: boolean;
+  }) => Effect.Effect<
+    | { mode: "local"; result: ConnectionAccessTokenClaims }
+    | { mode: "introspection"; result: IntrospectionResult },
+    VerifyConnectionTokenError
+  >;
 }
 
 /**
- * Configuration definition for {@link FalconConnectTargetClientOptions} when using
- * {@link FalconConnectTargetService}.
+ * Context tag for target client configuration.
  *
  * Provide a layer that supplies {@link FalconConnectTargetClientOptions}: base URL, app id, signing
  * key material, and optional custom `fetch`.
@@ -237,10 +204,11 @@ export class FalconConnectTargetConfig extends Context.Tag(
 )<FalconConnectTargetConfig, FalconConnectTargetClientOptions>() {}
 
 /**
- * Default Effect service implementation of the Falcon Connect target client.
+ * Default Effect `Service` implementation of the Falcon Connect **target** client.
  *
- * Requires {@link FalconConnectTargetConfig} in context. Exposes
- * {@link FalconConnectTargetServiceDef} methods.
+ * Requires {@link FalconConnectTargetConfig} in context. The service value implements
+ * {@link FalconConnectTargetServiceDef} (resolve/decide intents, introspect, find incoming, status,
+ * verify token).
  *
  * @see {@link FalconConnectTargetServiceDef}
  * @see {@link FalconConnectTargetConfig}
@@ -250,27 +218,162 @@ export class FalconConnectTargetService extends Effect.Service<FalconConnectTarg
   {
     effect: Effect.gen(function* () {
       const config = yield* FalconConnectTargetConfig;
+      const signed = toSignedConfig(config);
+
       const schema: FalconConnectTargetServiceDef = {
-        resolveInstallIntent: (intentToken: IntentToken) => {
-          return Effect.gen(function* () {
-            const intentSchemaOpt = Schema.decodeOption(ResolveInstallIntentInput)({
+        resolveInstallIntent: (intentToken: IntentToken) =>
+          Effect.gen(function* () {
+            const body = yield* Schema.decodeUnknown(ResolveInstallIntentInput)({
               intentToken,
-            });
-            if (Option.isNone(intentSchemaOpt)) {
-              // TODO: replace with proper error
-              return yield* Effect.die(new Error("This error will be replaced"));
-            }
-
-            const intentSchema = intentSchemaOpt.value;
-
-            return yield* signedJsonRequest<ResolveInstallIntentInput, ResolvedInstallIntent>(
-              config,
-              intentSchema,
+            }).pipe(Effect.mapError((cause) => new InvalidIntentTokenError({ cause })));
+            return yield* signedJsonRequest(
+              signed,
+              "resolveInstallIntent",
+              body,
               ResolvedInstallIntent,
               FALCON_CONNECT_API_ENDPOINTS.resolveInstallIntent,
-            ).pipe(Effect.mapError((cause) => new ResolveInstallIntentRequestError({ cause })));
-          });
-        },
+            );
+          }),
+
+        approveInstallIntent: (input) =>
+          Effect.gen(function* () {
+            const body = yield* Schema.decodeUnknown(DecideInstallIntentInput)({
+              approved: true,
+              intentToken: String(input.intentToken),
+              grantedScopes: normalizeGrantedScopes(input.intent, input.selectedScopeNames),
+            }).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new FalconConnectSignedRequestError({
+                    operation: "approveInstallIntent",
+                    cause,
+                  }),
+              ),
+            );
+            return yield* signedJsonRequest(
+              signed,
+              "approveInstallIntent",
+              body,
+              DecideInstallIntentResult,
+              FALCON_CONNECT_API_ENDPOINTS.installIntentDecision,
+            );
+          }),
+
+        submitInstallIntentDecision: (input) =>
+          Effect.gen(function* () {
+            const body = yield* Schema.decodeUnknown(DecideInstallIntentInput)(input).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new FalconConnectSignedRequestError({
+                    operation: "submitInstallIntentDecision",
+                    cause,
+                  }),
+              ),
+            );
+            return yield* signedJsonRequest(
+              signed,
+              "submitInstallIntentDecision",
+              body,
+              DecideInstallIntentResult,
+              FALCON_CONNECT_API_ENDPOINTS.installIntentDecision,
+            );
+          }),
+
+        introspectConnection: (input) =>
+          Effect.gen(function* () {
+            const body = yield* Schema.decodeUnknown(IntrospectConnectionInput)(input).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new FalconConnectSignedRequestError({
+                    operation: "introspectConnection",
+                    cause,
+                  }),
+              ),
+            );
+            return yield* signedJsonRequest(
+              signed,
+              "introspectConnection",
+              body,
+              IntrospectionResult,
+              FALCON_CONNECT_API_ENDPOINTS.introspectConnection,
+            );
+          }),
+
+        findIncomingConnection: (input) =>
+          Effect.gen(function* () {
+            const body = yield* Schema.decodeUnknown(FindIncomingConnectionInput)(input).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new FalconConnectSignedRequestError({
+                    operation: "findIncomingConnection",
+                    cause,
+                  }),
+              ),
+            );
+            return yield* signedJsonRequestNullableConnection(
+              signed,
+              "findIncomingConnection",
+              body,
+              FALCON_CONNECT_API_ENDPOINTS.incomingConnection,
+            );
+          }),
+
+        updateConnectionStatus: (input) =>
+          Effect.gen(function* () {
+            const body = yield* Schema.decodeUnknown(UpdateConnectionStatusInput)(input).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new FalconConnectSignedRequestError({
+                    operation: "updateConnectionStatus",
+                    cause,
+                  }),
+              ),
+            );
+            return yield* signedJsonRequest(
+              signed,
+              "updateConnectionStatus",
+              body,
+              ConnectionRecord,
+              FALCON_CONNECT_API_ENDPOINTS.connectionStatus,
+            );
+          }),
+
+        verifyConnectionToken: (input) =>
+          Effect.gen(function* () {
+            const baseUrlStr =
+              typeof config.baseUrl === "string" ? config.baseUrl : config.baseUrl.toString();
+            const jwksUrl = new URL("/.well-known/jwks.json", baseUrlStr).toString();
+            const attempt = yield* Effect.either(
+              verifyConnectionAccessTokenEffect({
+                token: input.token,
+                issuer: baseUrlStr,
+                audience: String(config.appId),
+                jwksUrl,
+              }).pipe(Effect.map((result) => ({ mode: "local" as const, result }))),
+            );
+            if (Either.isRight(attempt)) {
+              return attempt.right;
+            }
+            if (!input.allowIntrospectionFallback) {
+              return yield* new VerifyConnectionTokenError({ cause: attempt.left });
+            }
+            const decoded = yield* decodeJwtUnsafeEffect(input.token).pipe(
+              Effect.mapError((e) => new VerifyConnectionTokenError({ cause: e })),
+            );
+            const connectionId =
+              typeof decoded.connectionId === "string" ? decoded.connectionId : undefined;
+            const result = yield* signedJsonRequest(
+              signed,
+              "introspectConnection",
+              {
+                connectionId,
+                connectionToken: input.token,
+              },
+              IntrospectionResult,
+              FALCON_CONNECT_API_ENDPOINTS.introspectConnection,
+            ).pipe(Effect.mapError((e) => new VerifyConnectionTokenError({ cause: e })));
+            return { mode: "introspection" as const, result };
+          }),
       };
 
       return schema;

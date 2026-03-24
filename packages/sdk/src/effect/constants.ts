@@ -25,26 +25,50 @@ export const DEFAULT_INSTALL_INTENT_TTL_SECONDS = 900;
 export const DEFAULT_CONNECTION_TOKEN_TTL_SECONDS = 300;
 
 const resolveInstallIntentPath = "/v1/install-intents/resolve" as const;
-const decideInstallIntentPath = "/v1/install-intents/decide" as const;
+const installIntentDecisionPath = "/v1/install-intents/decision" as const;
+const createInstallIntentPath = "/v1/install-intents" as const;
 const introspectConnectionPath = "/v1/connections/introspect" as const;
-const verifyConnectionTokenPath = "/v1/connections/verify" as const;
+const incomingConnectionPath = "/v1/connections/incoming" as const;
+const connectionStatusPath = "/v1/connections/status" as const;
+const connectionAccessTokenPath = "/v1/connections/access-token" as const;
+const findConnectionPath = "/v1/connections/find" as const;
 
 /**
  * Falcon Connect API paths relative to a base URL (literal union schema).
  */
 export const FalconConnectApiEndpoint = Schema.Union(
   Schema.Literal(resolveInstallIntentPath),
-  Schema.Literal(decideInstallIntentPath),
+  Schema.Literal(installIntentDecisionPath),
+  Schema.Literal(createInstallIntentPath),
   Schema.Literal(introspectConnectionPath),
-  Schema.Literal(verifyConnectionTokenPath),
+  Schema.Literal(incomingConnectionPath),
+  Schema.Literal(connectionStatusPath),
+  Schema.Literal(connectionAccessTokenPath),
+  Schema.Literal(findConnectionPath),
 );
 /** A Falcon Connect API path string. */
 export type FalconConnectApiEndpoint = typeof FalconConnectApiEndpoint.Type;
 
-/** Named paths for {@link FalconConnectApiEndpoint}. */
+/**
+ * Stable path constants for signed Connect HTTP calls (aligned with the Connect server routes).
+ *
+ * Use with `new URL(path, baseUrl)`; each value is a member of {@link FalconConnectApiEndpoint}.
+ */
 export const FALCON_CONNECT_API_ENDPOINTS = {
+  /** `POST` — resolve install intent token to full intent payload. */
   resolveInstallIntent: resolveInstallIntentPath,
-  decideInstallIntent: decideInstallIntentPath,
+  /** `POST` — approve or deny install intent (`/decision`, not `/decide`). */
+  installIntentDecision: installIntentDecisionPath,
+  /** `POST` — create install intent (source app). */
+  createInstallIntent: createInstallIntentPath,
+  /** `POST` — introspect connection by id and/or token. */
   introspectConnection: introspectConnectionPath,
-  verifyConnectionToken: verifyConnectionTokenPath,
+  /** `POST` — find incoming connection (target app). */
+  incomingConnection: incomingConnectionPath,
+  /** `POST` — update connection status (source or target). */
+  connectionStatus: connectionStatusPath,
+  /** `POST` — issue connection access token (source app). */
+  connectionAccessToken: connectionAccessTokenPath,
+  /** `POST` — find connection by subject/org/target (source app); may return JSON `null`. */
+  findConnection: findConnectionPath,
 } as const;

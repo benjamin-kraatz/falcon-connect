@@ -1,12 +1,15 @@
 import { Effect, ParseResult, Schema } from "effect";
-import { importJWK } from "jose";
+import { createRemoteJWKSet, decodeJwt, importJWK, jwtVerify } from "jose";
 import { FALCON_APP_AUTH_HEADERS } from "./constants";
 import {
+  JwtDecodeError,
+  JwtVerificationError,
   OkpKeyImportError,
   RequestPayloadCanonicalizationError,
   RequestPayloadSigningError,
   Sha256Base64UrlError,
 } from "./errors";
+import { ConnectionAccessTokenClaims } from "./protocol";
 
 /**
  * A JSON Web Key object or its JSON string form, used when importing OKP (Ed25519) keys.
@@ -33,10 +36,6 @@ function toBase64Url(buffer: ArrayBuffer | Uint8Array) {
  * @param value - Base64URL-encoded input (no padding).
  * @returns Decoded bytes as a `Uint8Array`.
  */
-function fromBase64Url(value: string) {
-  return new Uint8Array(Buffer.from(value, "base64url"));
-}
-
 /**
  * Parses a supported JWK input into a {@link JsonWebKey} object.
  *
@@ -286,5 +285,48 @@ const FalconAppRequestCanonical = Schema.transformOrFail(
 export const canonicalizeFalconAppRequest = Effect.fn("canonicalizeFalconAppRequest")(
   (input: FalconAppRequestCanonicalInput) => {
     return Schema.decode(FalconAppRequestCanonical)(input);
+  },
+);
+
+/**
+ * Decode a JWT payload **without** signature verification (used only after local verification failed
+ * and introspection fallback in `FalconConnectTargetService.verifyConnectionToken` is enabled).
+ *
+ * @param token - Raw JWT string.
+ * @returns Decoded payload as a plain record (e.g. to read `connectionId` before introspection).
+ * @remarks On failure, the effect fails with {@link JwtDecodeError}.
+ */
+export const decodeJwtUnsafeEffect = Effect.fn("decodeJwtUnsafeEffect")(function* (token: string) {
+  return yield* Effect.try({
+    try: () => decodeJwt(token) as Record<string, unknown>,
+    catch: (cause) => new JwtDecodeError({ cause }),
+  });
+});
+
+/**
+ * Verify a connection access token with `jose`’s `jwtVerify` against a remote JWKS, then decode claims with
+ * {@link ConnectionAccessTokenClaims}.
+ *
+ * @param input.token - Bearer / raw JWT string.
+ * @param input.issuer - Expected `iss` (Connect base URL).
+ * @param input.audience - Expected `aud` (typically the target app id).
+ * @param input.jwksUrl - Absolute URL to `/.well-known/jwks.json` (or equivalent) for the issuer.
+ * @returns Decoded connection access token claims.
+ * @remarks On failure, the effect fails with {@link JwtVerificationError}.
+ */
+export const verifyConnectionAccessTokenEffect = Effect.fn("verifyConnectionAccessTokenEffect")(
+  function* (input: { token: string; issuer: string; audience: string; jwksUrl: string }) {
+    const keySet = createRemoteJWKSet(new URL(input.jwksUrl));
+    const { payload } = yield* Effect.tryPromise({
+      try: () =>
+        jwtVerify(input.token, keySet, {
+          issuer: input.issuer,
+          audience: input.audience,
+        }),
+      catch: (cause) => new JwtVerificationError({ cause }),
+    });
+    return yield* Schema.decodeUnknown(ConnectionAccessTokenClaims)(payload).pipe(
+      Effect.mapError((cause) => new JwtVerificationError({ cause })),
+    );
   },
 );
