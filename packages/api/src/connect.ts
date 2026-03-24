@@ -37,6 +37,7 @@ import {
   createInstallIntentInputSchema,
   decideInstallIntentInputSchema,
   findConnectionInputSchema,
+  findIncomingConnectionInputSchema,
   installIntentRecordSchema,
   introspectConnectionInputSchema,
   issueConnectionTokenInputSchema,
@@ -1259,6 +1260,36 @@ export async function introspectConnection(
   };
 }
 
+export async function findIncomingConnection(auth: AuthenticatedAppRequest, rawInput: unknown) {
+  const input = findIncomingConnectionInputSchema.parse(rawInput);
+  const candidates = await db
+    .select()
+    .from(connection)
+    .where(
+      and(
+        eq(connection.sourceAppId, input.sourceAppId),
+        eq(connection.targetAppId, auth.app.id),
+        eq(connection.falconSubjectId, input.falconSubjectId),
+        eq(connection.organizationId, input.organizationId),
+      ),
+    )
+    .orderBy(desc(connection.updatedAt))
+    .limit(10);
+
+  const selected =
+    candidates.find((row) => row.status === "active") ??
+    candidates.find((row) => row.status === "paused") ??
+    candidates[0] ??
+    null;
+
+  if (!selected) {
+    return null;
+  }
+
+  const grants = await getConnectionScopeGrants(selected.id);
+  return mapConnectionRecord(selected, grants);
+}
+
 export async function getOpsOverview(): Promise<OpsOverview> {
   const [
     [trustedAppCount],
@@ -1356,6 +1387,75 @@ export async function listAuditEvents(limit = 50) {
     payload: parseJsonObject(row.payloadJson),
     createdAt: row.createdAt.toISOString(),
   }));
+}
+
+export async function updateConnectionStatusForApp(
+  auth: AuthenticatedAppRequest,
+  rawInput: unknown,
+) {
+  const input = updateConnectionStatusInputSchema.parse(rawInput);
+  const [connectionRow] = await db
+    .select()
+    .from(connection)
+    .where(eq(connection.id, input.connectionId))
+    .limit(1);
+
+  ensure(connectionRow, 404, "CONNECTION_NOT_FOUND", "The connection was not found");
+  ensure(
+    connectionRow.sourceAppId === auth.app.id || connectionRow.targetAppId === auth.app.id,
+    403,
+    "CONNECTION_ACCESS_DENIED",
+    "The trusted app cannot manage this connection",
+  );
+
+  const now = new Date();
+  const nextValues =
+    input.status === "active"
+      ? {
+          status: "active",
+          pausedAt: null,
+          revokedAt: null,
+          revocationReason: null,
+          activatedAt: now,
+          updatedAt: now,
+        }
+      : input.status === "paused"
+        ? {
+            status: "paused",
+            pausedAt: now,
+            updatedAt: now,
+            revocationReason: input.reason ?? null,
+          }
+        : {
+            status: "revoked",
+            revokedAt: now,
+            updatedAt: now,
+            revocationReason: input.reason ?? "Revoked from dashboard",
+          };
+
+  await db.update(connection).set(nextValues).where(eq(connection.id, input.connectionId));
+
+  await insertAuditEvent({
+    connectionId: input.connectionId,
+    eventType: `connection.${input.status}`,
+    actorType: connectionRow.sourceAppId === auth.app.id ? "source_app" : "target_app",
+    actorId: auth.app.id,
+    payload: {
+      reason: input.reason ?? null,
+    },
+  });
+
+  const [updatedRow] = await db
+    .select()
+    .from(connection)
+    .where(eq(connection.id, input.connectionId))
+    .limit(1);
+
+  ensure(updatedRow, 500, "CONNECTION_UPDATE_FAILED", "The connection update failed");
+
+  const grants = await getConnectionScopeGrants(updatedRow.id);
+
+  return mapConnectionRecord(updatedRow, grants);
 }
 
 export async function updateConnectionStatus(rawInput: unknown) {

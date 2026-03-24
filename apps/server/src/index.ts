@@ -5,11 +5,13 @@ import {
   createInstallIntent,
   decideInstallIntent,
   ensureDemoTrustedAppsRegistered,
+  findIncomingConnection,
   getFalconJwks,
   introspectConnection,
   issueConnectionAccessToken,
   findConnection,
   resolveInstallIntent,
+  updateConnectionStatusForApp,
 } from "@falcon/api/connect";
 import { appRouter } from "@falcon/api/routers/index";
 import { auth } from "@falcon/auth";
@@ -156,10 +158,22 @@ app.post("/v1/connections/find", async (c) => {
   return c.json(await findConnection(c.get("trustedAppAuth"), payload));
 });
 
+app.post("/v1/connections/incoming", async (c) => {
+  const payload = parseSignedJsonBody(c);
+
+  return c.json(await findIncomingConnection(c.get("trustedAppAuth"), payload));
+});
+
 app.post("/v1/connections/introspect", async (c) => {
   const payload = parseSignedJsonBody(c);
 
   return c.json(await introspectConnection(c.get("trustedAppAuth"), payload));
+});
+
+app.post("/v1/connections/status", async (c) => {
+  const payload = parseSignedJsonBody(c);
+
+  return c.json(await updateConnectionStatusForApp(c.get("trustedAppAuth"), payload));
 });
 
 export const apiHandler = new OpenAPIHandler(appRouter, {
