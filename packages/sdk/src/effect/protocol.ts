@@ -51,16 +51,34 @@ export const installIntentStatus = Schema.Union(
 /** State of an install intent between source and target app. */
 export type InstallIntentStatus = typeof installIntentStatus.Type;
 
+const connectionStatusPending = Schema.Literal("pending");
+const connectionStatusActive = Schema.Literal("active");
+const connectionStatusPaused = Schema.Literal("paused");
+const connectionStatusRevoked = Schema.Literal("revoked");
+const connectionStatusDenied = Schema.Literal("denied");
+
 /** Connection between apps after install: active use, pause, or end states. */
 export const connectionStatus = Schema.Union(
-  Schema.Literal("pending"),
-  Schema.Literal("active"),
-  Schema.Literal("paused"),
-  Schema.Literal("revoked"),
-  Schema.Literal("denied"),
+  connectionStatusPending,
+  connectionStatusActive,
+  connectionStatusPaused,
+  connectionStatusRevoked,
+  connectionStatusDenied,
 );
 /** State of an established Connect link from source to target app. */
 export type ConnectionStatus = typeof connectionStatus.Type;
+
+/**
+ * Subset of {@link connectionStatus} allowed when updating a connection via API
+ * (same literals as in {@link connectionStatus}, excluding `pending` and `denied`).
+ */
+export const updateConnectionStatus = Schema.Union(
+  connectionStatusActive,
+  connectionStatusPaused,
+  connectionStatusRevoked,
+);
+/** Inferred type for {@link updateConnectionStatus}. */
+export type UpdateConnectionStatus = typeof updateConnectionStatus.Type;
 
 /** Who performed an auditable action in the Connect system. */
 export const connectionAuditActorType = Schema.Union(
@@ -180,3 +198,232 @@ export const createInstallIntentResult = Schema.Struct({
 });
 /** Inferred type for {@link createInstallIntentResult}. */
 export type CreateInstallIntentResult = typeof createInstallIntentResult.Type;
+
+/** JWT / opaque token claims for an install intent handoff. */
+export const installIntentTokenClaims = Schema.Struct({
+  kind: Schema.Literal("falcon-connect-install-intent"),
+  intentId: Schema.NonEmptyString,
+  sourceAppId: Schema.NonEmptyString,
+  targetAppId: Schema.NonEmptyString,
+});
+/** Inferred type for {@link installIntentTokenClaims}. */
+export type InstallIntentTokenClaims = typeof installIntentTokenClaims.Type;
+
+/** Input to resolve an install intent from a token. */
+export const resolveInstallIntentInput = Schema.Struct({
+  intentToken: Schema.NonEmptyString,
+});
+/** Inferred type for {@link resolveInstallIntentInput}. */
+export type ResolveInstallIntentInput = typeof resolveInstallIntentInput.Type;
+
+/** One scope row in the resolved install intent (consent UI state). */
+export const resolvedInstallIntentScope = Schema.Struct({
+  name: Schema.NonEmptyString,
+  displayName: Schema.NonEmptyString,
+  description: Schema.NonEmptyString,
+  required: Schema.Boolean,
+  system: Schema.Boolean,
+  selected: Schema.Boolean,
+});
+/** Inferred type for {@link resolvedInstallIntentScope}. */
+export type ResolvedInstallIntentScope = typeof resolvedInstallIntentScope.Type;
+
+const trustedAppManifestResolvedIntentSummary = trustedAppManifest.pipe(
+  Schema.pick("id", "slug", "displayName", "dataApiBaseUrl", "supportEmail", "supportUrl"),
+);
+
+/** Fully resolved install intent for display and consent. */
+export const resolvedInstallIntent = Schema.Struct({
+  intentId: Schema.NonEmptyString,
+  status: installIntentStatus,
+  sourceApp: trustedAppManifestResolvedIntentSummary,
+  targetApp: trustedAppManifestResolvedIntentSummary,
+  falconSubjectId: Schema.NonEmptyString,
+  organizationId: Schema.NonEmptyString,
+  sourceReturnUrl: Schema.URL,
+  scopes: Schema.Array(resolvedInstallIntentScope),
+  expiresAt: Schema.Date,
+});
+/** Inferred type for {@link resolvedInstallIntent}. */
+export type ResolvedInstallIntent = typeof resolvedInstallIntent.Type;
+
+const decideInstallIntentInputBase = Schema.Struct({
+  intentToken: Schema.NonEmptyString,
+  grantedScopes: Schema.Array(Schema.NonEmptyString).pipe(
+    Schema.optionalWith({ default: () => [] as ReadonlyArray<string> }),
+  ),
+  deniedReason: Schema.optional(Schema.String.pipe(Schema.minLength(1), Schema.maxLength(500))),
+});
+
+/** Approve or deny an install intent (discriminated by `approved`). */
+export const decideInstallIntentInput = Schema.Union(
+  Schema.extend(decideInstallIntentInputBase, Schema.Struct({ approved: Schema.Literal(true) })),
+  Schema.extend(decideInstallIntentInputBase, Schema.Struct({ approved: Schema.Literal(false) })),
+);
+/** Inferred type for {@link decideInstallIntentInput}. */
+export type DecideInstallIntentInput = typeof decideInstallIntentInput.Type;
+
+/** Persisted connection between source and target apps after install completes. */
+export const connectionRecord = Schema.Struct({
+  id: Schema.NonEmptyString,
+  sourceAppId: Schema.NonEmptyString,
+  targetAppId: Schema.NonEmptyString,
+  falconSubjectId: Schema.NonEmptyString,
+  organizationId: Schema.NonEmptyString,
+  status: connectionStatus,
+  targetDataApiBaseUrl: Schema.URL,
+  grantedScopes: Schema.Array(resolvedInstallIntentScope),
+  createdAt: Schema.Date,
+  updatedAt: Schema.Date,
+  activatedAt: Schema.NullOr(Schema.Date),
+  pausedAt: Schema.NullOr(Schema.Date),
+  revokedAt: Schema.NullOr(Schema.Date),
+  revocationReason: Schema.NullOr(Schema.String),
+});
+/** Inferred type for {@link connectionRecord}. */
+export type ConnectionRecord = typeof connectionRecord.Type;
+
+/** Result of approving/denying an install intent (status, optional connection, redirect). */
+export const decideInstallIntentResult = Schema.Struct({
+  status: installIntentStatus,
+  connection: Schema.NullOr(connectionRecord),
+  redirectUrl: Schema.URL,
+});
+/** Inferred type for {@link decideInstallIntentResult}. */
+export type DecideInstallIntentResult = typeof decideInstallIntentResult.Type;
+
+/** Request a short-lived connection access token. */
+export const issueConnectionTokenInput = Schema.Struct({
+  connectionId: Schema.NonEmptyString,
+  expiresInSeconds: Schema.optional(Schema.Int.pipe(Schema.between(60, 3600))),
+});
+/** Inferred type for {@link issueConnectionTokenInput}. */
+export type IssueConnectionTokenInput = typeof issueConnectionTokenInput.Type;
+
+/** Look up a connection by subject, org, and target app. */
+export const findConnectionInput = Schema.Struct({
+  targetAppId: Schema.NonEmptyString,
+  falconSubjectId: Schema.NonEmptyString,
+  organizationId: Schema.NonEmptyString,
+});
+/** Inferred type for {@link findConnectionInput}. */
+export type FindConnectionInput = typeof findConnectionInput.Type;
+
+/** Claims carried in a connection access token (JWT-style). */
+export const connectionAccessTokenClaims = Schema.Struct({
+  kind: Schema.Literal("falcon-connect-connection"),
+  connectionId: Schema.NonEmptyString,
+  sourceAppId: Schema.NonEmptyString,
+  targetAppId: Schema.NonEmptyString,
+  falconSubjectId: Schema.NonEmptyString,
+  organizationId: Schema.NonEmptyString,
+  scopes: Schema.Array(Schema.NonEmptyString),
+  jti: Schema.NonEmptyString,
+  iss: Schema.NonEmptyString,
+  aud: Schema.NonEmptyString,
+  sub: Schema.NonEmptyString,
+  iat: Schema.NonNegativeInt,
+  exp: Schema.NonNegativeInt,
+});
+/** Inferred type for {@link connectionAccessTokenClaims}. */
+export type ConnectionAccessTokenClaims = typeof connectionAccessTokenClaims.Type;
+
+/** Issued connection token and decoded claims. */
+export const issueConnectionTokenResult = Schema.Struct({
+  token: Schema.NonEmptyString,
+  expiresAt: Schema.Date,
+  claims: connectionAccessTokenClaims,
+});
+/** Inferred type for {@link issueConnectionTokenResult}. */
+export type IssueConnectionTokenResult = typeof issueConnectionTokenResult.Type;
+
+const introspectConnectionInputStruct = Schema.Struct({
+  connectionId: Schema.optional(Schema.NonEmptyString),
+  connectionToken: Schema.optional(Schema.NonEmptyString),
+});
+
+/** Introspect by connection id and/or token (at least one required). */
+export const introspectConnectionInput = introspectConnectionInputStruct.pipe(
+  Schema.filter((value) => {
+    return value.connectionId !== undefined || value.connectionToken !== undefined
+      ? true
+      : {
+          path: ["connectionId"],
+          message: "Either connectionId or connectionToken is required",
+        };
+  }),
+);
+/** Inferred type for {@link introspectConnectionInput}. */
+export type IntrospectConnectionInput = typeof introspectConnectionInput.Type;
+
+/** Active flag and optional connection snapshot from introspection. */
+export const introspectionResult = Schema.Struct({
+  active: Schema.Boolean,
+  reason: Schema.NullOr(Schema.String),
+  connection: Schema.NullOr(connectionRecord),
+});
+/** Inferred type for {@link introspectionResult}. */
+export type IntrospectionResult = typeof introspectionResult.Type;
+
+/** Trusted app API / signing key metadata. */
+export const trustedAppKey = Schema.Struct({
+  id: Schema.NonEmptyString,
+  appId: Schema.NonEmptyString,
+  keyId: Schema.NonEmptyString,
+  algorithm: Schema.NonEmptyString,
+  status: trustedAppKeyStatus,
+  createdAt: Schema.Date,
+  rotatedAt: Schema.NullOr(Schema.Date),
+});
+/** Inferred type for {@link trustedAppKey}. */
+export type TrustedAppKey = typeof trustedAppKey.Type;
+
+/** Stored install intent row (server-side). */
+export const installIntentRecord = Schema.Struct({
+  id: Schema.NonEmptyString,
+  sourceAppId: Schema.NonEmptyString,
+  targetAppId: Schema.NonEmptyString,
+  falconSubjectId: Schema.NonEmptyString,
+  organizationId: Schema.NonEmptyString,
+  status: installIntentStatus,
+  requestedScopes: Schema.Array(Schema.NonEmptyString),
+  sourceReturnUrl: Schema.URL,
+  expiresAt: Schema.Date,
+  createdAt: Schema.Date,
+  updatedAt: Schema.Date,
+});
+/** Inferred type for {@link installIntentRecord}. */
+export type InstallIntentRecord = typeof installIntentRecord.Type;
+
+/** Auditable Connect event (install, token, status changes, etc.). */
+export const connectionAuditEvent = Schema.Struct({
+  id: Schema.NonEmptyString,
+  connectionId: Schema.NullOr(Schema.NonEmptyString),
+  installIntentId: Schema.NullOr(Schema.NonEmptyString),
+  eventType: Schema.NonEmptyString,
+  actorType: connectionAuditActorType,
+  actorId: Schema.NullOr(Schema.NonEmptyString),
+  payload: Schema.Record({ key: Schema.NonEmptyString, value: Schema.Any }),
+  createdAt: Schema.Date,
+});
+/** Inferred type for {@link connectionAuditEvent}. */
+export type ConnectionAuditEvent = typeof connectionAuditEvent.Type;
+
+/** Aggregate counts for ops / dashboard overview. */
+export const opsOverview = Schema.Struct({
+  trustedAppCount: Schema.NonNegativeInt,
+  activeConnectionCount: Schema.NonNegativeInt,
+  pendingInstallIntentCount: Schema.NonNegativeInt,
+  pausedConnectionCount: Schema.NonNegativeInt,
+});
+/** Inferred type for {@link opsOverview}. */
+export type OpsOverview = typeof opsOverview.Type;
+
+/** Admin or API update to connection lifecycle (active / paused / revoked). */
+export const updateConnectionStatusInput = Schema.Struct({
+  connectionId: Schema.NonEmptyString,
+  status: updateConnectionStatus,
+  reason: Schema.optional(Schema.String.pipe(Schema.minLength(1), Schema.maxLength(500))),
+});
+/** Inferred type for {@link updateConnectionStatusInput}. */
+export type UpdateConnectionStatusInput = typeof updateConnectionStatusInput.Type;
