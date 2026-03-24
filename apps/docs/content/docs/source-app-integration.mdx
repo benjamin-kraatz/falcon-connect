@@ -1,0 +1,83 @@
+---
+title: Source App Integration
+description: Detailed guidance for the app that initiates the relationship.
+icon: Send
+---
+
+# Source App Integration
+
+This page is written for the application that wants to call another application. In FALCON Connect terminology, that is the source app.
+
+The `apps/demo-01` Project Hub app is the reference implementation for this source-side flow.
+
+The source app has two distinct responsibilities. At install time, it initiates the connection request and handles the callback after consent. At runtime, it mints short-lived FALCON connection tokens and uses them to call the target app directly.
+
+Those responsibilities are related, but they should not be conflated. The code path that starts a connection is not the same code path that performs runtime partner requests.
+
+## Before You Write Any Code
+
+Make sure FALCON staff have already registered your source app with:
+
+- your trusted app id
+- at least one active public key
+- one or more allowed callback URLs
+- your runtime data API base URL
+
+Your source app keeps the matching private JWK. That key is used only when your app talks to FALCON. It is not sent to the target app.
+
+## Creating the Install Intent
+
+The install flow starts with a signed request to FALCON. If you use the SDK, the SDK signs the request for you. If you implement the protocol manually, make sure your request is signed with the trusted app headers described in [Registration and Keys](../registration-and-keys).
+
+The request body contains:
+
+- the target app id
+- the FALCON subject id
+- the organization id
+- the scopes you want to request
+- the callback URL FALCON should use when the flow finishes
+- an optional custom expiry for the install intent
+
+This is where you should think carefully about the business context you are using. FALCON Connect does not infer `falconSubjectId` or `organizationId` for you. Your application supplies them, and those values become part of the connection identity.
+
+## Redirecting the User
+
+If FALCON accepts the request, it returns a `connectUrl`. Redirect the user there exactly as returned. Do not rebuild the URL manually unless you have a very specific reason to do so.
+
+That URL points at the target app's registered consent route and already includes the signed FALCON install token in its query string.
+
+In the demo pair, Project Hub redirects to Incident Ops at `http://localhost:4102/connect-flow?...`.
+
+## Handling the Callback
+
+Once the target app has collected consent, FALCON returns a callback URL to the target app, and the user is redirected back to your source app.
+
+Your source app should parse the callback query parameters and treat them as the result of the install flow. In practice that means:
+
+- if the status is `approved`, persist or associate the `connectionId`
+- if the status is `denied` or `expired`, surface that state to the user
+- if a `reason` is present, log it and optionally show it in the UI
+
+Do not assume every failed install is a technical error. A denial may simply be the target-side user intentionally refusing the relationship.
+
+## Persisting the Connection Identifier
+
+The `connectionId` is the durable handle your source app uses later when it wants to mint runtime tokens. Store it in the part of your system that understands the relevant business context. That often means your own integration table keyed by the local installation record or by the same `falconSubjectId` and `organizationId` pair you used during install creation.
+
+## Minting Runtime Tokens
+
+When your source app wants to call the target app at runtime, it asks FALCON to exchange the stored `connectionId` for a short-lived JWT. That call is authenticated as your trusted app, just like the install-intent request.
+
+The response contains the JWT itself and the resolved claims FALCON used to build it. The claims are worth inspecting during development because they show exactly what the target app will see when it verifies the token.
+
+## Calling the Target App
+
+FALCON Connect does not prescribe your application-level API shape. You still decide which HTTP method to use, which path to call, which business payload to send, and where in the request you want to place the FALCON token.
+
+In practice, most partner integrations will carry the FALCON JWT in an authorization-style header and then let the target app apply its own application-specific authorization logic on top of the verified connection claims.
+
+## Practical Advice for Source Apps
+
+Keep runtime tokens short-lived and mint them on demand. They are verification artifacts, not long-lived installation secrets. If a target app starts rejecting a token because it is expired or the connection state changed, treat that as an expected runtime condition and recover by asking FALCON for a fresh token or by surfacing that the connection is no longer active.
+
+If your product should pause, resume, or revoke the connection from the source side (not only through the operator dashboard), use the partner status API (`POST /v1/connections/status`). The same endpoint is available to the target app when that side is responsible for the change. See the [SDK Usage Guide](../sdk-usage-guide#source-and-target-update-connection-status).

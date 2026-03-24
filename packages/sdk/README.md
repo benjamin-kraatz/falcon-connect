@@ -1,37 +1,46 @@
 # FALCON Connect SDK
 
-This is the TypeScript SDK for the FALCON Connect service.
+This is the TypeScript SDK for integrating partner applications with FALCON Connect.
 
-## What is FALCON Connect?
+## Surface Area
 
-> This explanation might be incomplete and/or might be extended in the future.
+- source app helpers
+  - create install intents
+  - parse install callbacks
+  - mint runtime connection tokens
+  - update connection status (pause, resume, revoke)
+- target app helpers
+  - resolve install intents
+  - submit consent decisions
+  - look up an incoming connection by source app, subject, and organization
+  - verify Falcon connection tokens locally
+  - introspect Falcon as a fallback
+  - update connection status (pause, resume, revoke)
+- shared protocol
+  - trusted app manifests
+  - scope descriptors
+  - install intent payloads
+  - connection token claims
+  - introspection responses
 
-With FALCON Connect, app developers (during the early alpha, only FALCON-supported applications that the team behind FALCON controls) can implement service integration.
-That means, when two distinct applications want to exchange data, they can use FALCON Connect to "install" the other apps.
+## Key Concepts
 
-**Important**: FALCON Connect _does not_ manage the actual data exchange. It only provides the infrastructure to enable the exchange.
+- trusted apps authenticate to Falcon with request signatures backed by their private JWK
+- target apps own the user-facing login and consent route
+- Falcon issues short-lived JWTs for runtime verification
+- target apps verify locally against Falcon JWKS and introspect on fallback
 
-## Example Flow
+## Mandatory System Scopes
 
-This flow shows how FALCON Connect conceptually works. Assume that user in application A wants to enable the app to read data from application B.
+V1 starts with `read:app-info` as a non-disableable Falcon system scope. The SDK treats system and required scopes as locked during consent selection.
 
-1. User goes to app A's settings page and sees "Connect App B"
-2. They click on "Connect"
-3. They are redirected to app B at a specific URL (e.g. https://app-b.com/falcon/connect-request?app-a=https://app-a.com&app-a-pubkey=...)
-4. Next steps depends on the sign in state:
-   - If the user is not signed in, they are redirected to the sign in page. After signing in, they go to the next step.
-   - If the user is signed in, they go to the next step directly.
-5. User confirms the installation of this integration (or denies it). They see the capabilities/scopes that app A has requested from app B
-6. They are redirected to app A's settings page
-7. They see that the connection is established (or not)
+## End-to-End Demo Apps
 
-This is only a high level flow, and might work a little different in some small edge cases. Also, it might be extended in the future.
+The SDK is exercised end to end in this monorepo by:
 
-Now, the apps can communicate with each other. During the installation and connection process, app B told app A the base URL of the endpoint to communicate with.
-This base URL is completely independent from the FALCON Connect infrastructure. It is only a convenience for exchanging basic information between the apps.
+- `apps/demo-01` implementing **Project Hub** as the source app
+- `apps/demo-02` implementing **Incident Ops** as the target app
 
-### Gotcha
+Together they cover the high-level source and target clients, the consent helpers, and the lower-level crypto helpers used for signed app requests and JWT verification.
 
-In very, very simple terms, this is very similar to how OAuth works. But with a few key differences:
-
-OAuth is a standard for authentication, while FALCON Connect is a standard for service integration. The auth client is pretty analogous to the source application, and the Identity Provider is somewhat analogous to the target application.
+See the [docs site](https://falcon-connect-docs.vercel.app/) for the narrative walkthrough and the demo app READMEs for the local runbook.

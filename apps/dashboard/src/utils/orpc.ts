@@ -1,8 +1,6 @@
-import type { AppRouter } from "@falcon/api/routers/index";
 import { env } from "@falcon/env/web";
 import { createORPCClient } from "@orpc/client";
 import { RPCLink } from "@orpc/client/fetch";
-import type { RouterClient } from "@orpc/server";
 import { createTanstackQueryUtils } from "@orpc/tanstack-query";
 import { QueryCache, QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -31,9 +29,9 @@ const link = new RPCLink({
 });
 
 const getORPCClient = () => {
-  return createORPCClient(link) as RouterClient<AppRouter>;
+  return createORPCClient(link);
 };
 
-export const client: RouterClient<AppRouter> = getORPCClient();
+export const client = getORPCClient();
 
 export const orpc = createTanstackQueryUtils(client);

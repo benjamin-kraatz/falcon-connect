@@ -29,6 +29,13 @@
       "@orpc/client": "^1.12.2",
       "@types/react": "^19.2.10",
       "@types/react-dom": "^19.2.3"
+    },
+    "catalogs": {
+      "effect": {
+        "effect": "^3.21.0",
+        "@effect/platform": "^0.96.0",
+        "@effect/language-service": "^0.82.0"
+      }
     }
   },
   "type": "module",
@@ -37,8 +44,13 @@
     "build": "nx run-many -t build",
     "check-types": "nx run-many -t check-types",
     "typecheck": "bun run check-types",
-    "dev:web": "nx run-many -t dev --projects=web",
-    "dev:server": "nx run-many -t dev --projects=server",
+    "dev:web": "nx run-many -t dev --projects=@falcon/infra,@falcon/db",
+    "dev:server": "echo \"That's not necessary. Infra starts both web and server. Use `bun run dev:web` instead.\" && bun run dev:web",
+    "dev:docs": "nx run-many -t dev --projects=@falcon/connect-docs",
+    "dev:demo-01": "nx run-many -t dev --projects=@falcon/connect-demo-01",
+    "dev:demo-02": "nx run-many -t dev --projects=@falcon/connect-demo-02",
+    "dev:demos": "nx run-many -t dev --projects=@falcon/infra,@falcon/db,@falcon/connect-demo-01,@falcon/connect-demo-02 --parallel=4",
+    "gen:jwk": "node scripts/generate-jwk.mjs",
     "db:push": "nx run-many -t db:push --projects=@falcon/db",
     "db:studio": "nx run-many -t db:studio --projects=@falcon/db",
     "db:generate": "nx run-many -t db:generate --projects=@falcon/db",
@@ -53,15 +65,15 @@
     "prepare": "effect-language-service patch"
   },
   "dependencies": {
-    "@effect/platform": "^0.96.0",
+    "@effect/platform": "catalog:effect",
     "@falcon/env": "workspace:*",
     "dotenv": "catalog:",
-    "effect": "^3.21.0",
+    "effect": "catalog:effect",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "catalog:",
-    "@effect/language-service": "^0.82.0",
+    "@effect/language-service": "catalog:effect",
     "@falcon/config": "workspace:*",
     "@types/node": "catalog:",
     "lefthook": "^2.0.13",

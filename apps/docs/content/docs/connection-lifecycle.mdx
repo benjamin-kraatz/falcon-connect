@@ -1,0 +1,120 @@
+---
+title: Connection Lifecycle
+description: The full protocol from install intent creation to live runtime traffic.
+icon: Workflow
+---
+
+# Connection Lifecycle
+
+The most useful way to understand FALCON Connect is to follow a single connection from beginning to end.
+
+## Step 1: The Source App Creates an Install Intent
+
+The source app begins by asking FALCON Connect to create an install intent. This is the moment where the source app says, in effect, "I want to connect to this target app, for this FALCON subject and organization, with these requested scopes, and I want the user to come back to this callback URL afterward."
+
+That request is sent to:
+
+```text
+POST /v1/install-intents
+```
+
+with a JSON body shaped like:
+
+```json
+{
+  "targetAppId": "orders",
+  "falconSubjectId": "usr_123",
+  "organizationId": "org_456",
+  "requestedScopes": ["orders:read", "orders:search"],
+  "sourceReturnUrl": "https://invoices.example.com/settings/connect/callback",
+  "expiresInSeconds": 900
+}
+```
+
+FALCON validates all of the following before it creates the intent:
+
+- the source app is active
+- the source app key is active
+- the target app exists and is active
+- the callback URL is allowlisted for the source app
+- every requested scope is declared by the target app
+
+FALCON also adds mandatory system scopes, so the final requested scope set is not always identical to the raw list the source app sent.
+
+## Step 2: FALCON Returns a Connect URL
+
+If the request is valid, FALCON stores the pending install intent and returns an `intentId`, a signed `intentToken`, a `connectUrl`, and an `expiresAt` timestamp.
+
+The source app does not need to invent the redirect URL itself. FALCON already builds it from the target app's registered connect request URL and appends the signed install token.
+
+At this point, the source app's job is simply to redirect the user to that URL.
+
+## Step 3: The User Lands in the Target App
+
+The target app receives the user on its own domain. This is an important trust boundary. FALCON does not log the user into the target app, and it does not render the consent page on the app's behalf.
+
+The target app can enforce any local auth policy it wants before it continues. If the user needs to sign in, this happens inside the target app.
+
+Once the user is ready, the target app resolves the install token with FALCON:
+
+```text
+POST /v1/install-intents/resolve
+```
+
+FALCON returns the source app metadata, target app metadata, connection scope identifiers, and the consent-state model that the target app should display.
+
+## Step 4: The Target App Collects Consent
+
+The target app now has enough information to present a meaningful consent screen.
+
+The UI should communicate three things clearly:
+
+1. which app is requesting access
+2. which identity and organization context the connection is about
+3. which scopes are required and which are optional
+
+This distinction between required and optional scopes is why scope declarations live in FALCON rather than existing only inside partner app code. The target app should not guess what is required. FALCON already returns that state.
+
+If the user denies the request, the target app sends a denial decision. If the user approves the request, the target app sends the final granted scope set.
+
+## Step 5: FALCON Persists the Directional Connection
+
+When FALCON receives the decision, it updates the install intent and creates or updates the directional connection record.
+
+The connection stores the source app id, the target app id, `falconSubjectId`, `organizationId`, the current status, the target app's runtime base URL snapshot, and the granted scope set.
+
+FALCON also writes audit events so that the relationship has a traceable lifecycle.
+
+## Step 6: FALCON Produces the Source-App Callback
+
+FALCON returns a callback URL back to the target app. The target app should redirect the user to that URL when the consent interaction is complete.
+
+The callback includes state such as `falcon_connect_status`, `falcon_connect_connection_id`, `falcon_connect_intent_id`, and `falcon_connect_reason`.
+
+From the source app's perspective, this is the moment where the installation result becomes visible.
+
+## Step 7: The Source App Mints Runtime Tokens
+
+Once the connection exists, install-time behavior is over. The relationship has moved into runtime behavior.
+
+Whenever the source app needs to call the target app, it asks FALCON for a short-lived runtime token:
+
+```text
+POST /v1/connections/access-token
+```
+
+FALCON validates that the connection exists, the authenticated source app owns that connection, and the connection is currently active.
+
+## Step 8: The Target App Verifies Runtime Calls
+
+The source app includes the FALCON-issued JWT in its direct request to the target app.
+
+The target app verifies the token locally against FALCON's JWKS endpoint. If local verification is not sufficient, the target app calls FALCON introspection to confirm the authoritative state of the connection.
+
+That split between local verification and introspection is the core of FALCON Connect's runtime model. It keeps normal traffic cheap while letting FALCON remain authoritative for pause, revoke, and reconnect state changes.
+
+## Managing Connection State from Partner Apps
+
+After a connection exists, either party may change its status through the partner API when your product needs to pause, resume, or revoke outside the operator dashboard (`POST /v1/connections/status`). The authenticated app must be the connection’s source or target.
+
+The target app can also retrieve the current connection record without a `connectionId` when it already knows the source app id, `falconSubjectId`, and `organizationId` (`POST /v1/connections/incoming`). For SDK usage, see the [SDK Usage Guide](../sdk-usage-guide).

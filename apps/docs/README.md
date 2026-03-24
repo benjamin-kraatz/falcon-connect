@@ -1,18 +1,17 @@
 # FALCON Connect Docs
 
-This is the documentation site for the FALCON Connect service.
+This site contains the partner-facing FALCON Connect documentation.
 
----
+Topics include:
 
-This is a Tanstack Start application generated with
-[Create Fumadocs](https://github.com/fuma-nama/fumadocs).
+- trusted app registration prerequisites
+- keypair setup
+- source app integration
+- target app integration
+- runtime token verification and introspection
 
----
-
-Run development server:
+Run the docs app with:
 
 ```bash
-pnpm run dev
-# or
 bun dev
 ```

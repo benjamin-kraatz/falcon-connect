@@ -1,0 +1,123 @@
+---
+title: Registration and Keys
+description: Trusted app metadata, callback validation, and the request-signing model.
+icon: KeyRound
+---
+
+# Registration and Keys
+
+FALCON Connect only works if both sides can reliably answer a simple question: "Which application is making this request, and should FALCON trust it?"
+
+The answer in v1 is a trusted app record plus a public/private key pair.
+
+## Trusted App Registration
+
+Trusted apps are not self-registered in v1. FALCON staff create them manually. That is a product decision, not a temporary accident. The goal of v1 is to make the protocol and the operational model stable before FALCON exposes self-service onboarding.
+
+The registration record contains two kinds of information.
+
+The first kind is identity and routing metadata:
+
+- app id
+- slug
+- display name
+- connect request URL
+- data API base URL
+- allowed callback URLs
+- support metadata such as email or support URL
+
+The second kind is trust metadata:
+
+- one or more active public keys
+- key ids
+- signing algorithm
+- target-app scope declarations
+
+When FALCON receives a signed request, it uses the app id and key id to find the public key that should verify the signature.
+
+## Why FALCON Stores Callback URLs
+
+The callback URL is one of the easiest places to create an accidental open-redirect or trust confusion bug. For that reason, FALCON validates `sourceReturnUrl` by exact membership in the source app's allowlist.
+
+If your source app wants to support more than one post-install landing page, register each URL explicitly. Do not assume FALCON will accept arbitrary URLs under the same origin.
+
+## Signing Model
+
+Every partner request to FALCON under `/v1/*` is authenticated with these headers:
+
+```text
+x-falcon-app-id
+x-falcon-key-id
+x-falcon-timestamp
+x-falcon-nonce
+x-falcon-signature
+```
+
+FALCON verifies the request against the public JWK stored for the trusted app key.
+
+The timestamp exists to limit the replay window. The nonce exists to make replay detection stateful inside that window. FALCON stores used nonces and rejects them if they are seen again.
+
+## The Canonical String
+
+If you use the SDK, you do not need to build the signature payload yourself. The SDK already canonicalizes and signs requests the way FALCON expects.
+
+If you are integrating without the SDK, FALCON currently signs the following canonical string:
+
+```text
+<HTTP METHOD>
+<PATH AND QUERY>
+<BASE64URL(SHA256(BODY))>
+<APP ID>
+<KEY ID>
+<TIMESTAMP>
+<NONCE>
+```
+
+This detail matters because signature mismatches are almost always caused by one of four things:
+
+1. the request body was serialized differently before signing and sending
+2. the path used for signing does not match the actual path FALCON received
+3. the timestamp is stale
+4. the wrong key id was selected for the private key being used
+
+## Key Format
+
+The current implementation expects JWK material. In practice that means FALCON stores the public JWK while the partner application stores the private JWK. The `kid` is tracked separately in the trusted app key record.
+
+The FALCON server itself also has its own signing JWK for runtime JWT issuance. That key is unrelated to partner app request signing. Partner request signatures prove that your app is allowed to talk to FALCON. FALCON-issued runtime JWTs prove to a target app that a connection is valid.
+
+## Generating JWKs Locally
+
+The repo includes a helper for generating Ed25519 JWK pairs:
+
+```bash
+# Generate a partner app key pair
+bun run gen:jwk -- --mode trusted-app --key-id orders-key-1
+
+# Generate the Falcon runtime-signing key pair
+bun run gen:jwk -- --mode falcon --key-id falcon-connect-signing-key-1
+```
+
+The script prints:
+
+- the private JWK JSON for your environment variable
+- the public JWK JSON to register in Falcon
+- suggested env var names such as `FALCON_PRIVATE_JWK` or `FALCON_CONNECT_SIGNING_PRIVATE_JWK`
+
+For source or target partner apps, keep the private JWK on your side and register only the public JWK with Falcon.
+
+## Scope Registration
+
+If your app can act as a target app, FALCON also needs to know which scopes your app exposes.
+
+Each scope declaration contains:
+
+- `name`
+- `displayName`
+- `description`
+- `requiredByDefault`
+- `systemScope`
+
+This is not only descriptive metadata for UI. FALCON uses it to decide which scopes are locked on during consent and which scopes are optional.
+
+The `systemScope` flag is reserved for FALCON-owned scopes that must always be granted. V1 starts with `read:app-info`.

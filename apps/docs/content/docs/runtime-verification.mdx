@@ -1,0 +1,81 @@
+---
+title: Runtime Verification
+description: The runtime JWT contract, local verification flow, and introspection fallback.
+icon: KeyRound
+---
+
+# Runtime Verification
+
+At runtime, the user is no longer clicking through a consent screen. The system has already established a directional relationship. The runtime problem is now much narrower: when the source app sends a direct request to the target app, how does the target app verify that the request belongs to an active FALCON Connect relationship?
+
+The answer in v1 is a FALCON-issued JWT plus a fallback introspection endpoint.
+
+## The Normal Runtime Path
+
+The normal runtime path is intentionally simple.
+
+First, the source app exchanges a `connectionId` for a short-lived FALCON connection token. FALCON checks that the connection belongs to that source app and is currently active. If those conditions hold, FALCON signs a JWT whose audience is the target app id.
+
+Second, the source app calls the target app directly and includes that JWT.
+
+Third, the target app verifies the JWT locally against FALCON's JWKS endpoint:
+
+```text
+GET /.well-known/jwks.json
+```
+
+That is the fast path. No extra FALCON round-trip is required when the token is valid and the target app's local JWKS cache is current.
+
+## Token Claims
+
+The current JWT claims include:
+
+- connection id
+- source app id
+- target app id
+- `falconSubjectId`
+- `organizationId`
+- the granted scope list
+- standard JWT fields such as issuer, audience, subject, issued-at, expiry, and JWT id
+
+The target app should treat those claims as verified connection metadata, not as a replacement for its own business authorization logic. FALCON can tell you that the directional relationship exists and what scopes were granted. Your app still decides how those scopes map to concrete endpoints, resources, and behaviors.
+
+## Why Audience Matters
+
+The token audience is set to the target app id. That is a deliberate protection against token replay across partner apps. Even if another app somehow saw the token, it should not pass audience validation unless it is the intended target app.
+
+## When to Introspect
+
+Local verification is the normal path, but not the only path. The target app should use FALCON introspection when it needs an authoritative answer from the control plane.
+
+The obvious cases are:
+
+- the token is expired
+- the local JWKS cache may be stale
+- the app wants to confirm pause or revoke state before honoring a sensitive request
+- the app wants an authoritative view of the currently granted scopes after a reconnect or scope change
+
+FALCON exposes:
+
+```text
+POST /v1/connections/introspect
+```
+
+The target app may send either the connection token, the connection id, or both. FALCON resolves the connection state and returns whether the connection is active plus the current connection record.
+
+## Why the Model Is Hybrid
+
+If FALCON introspection were mandatory on every runtime request, FALCON would become a hot-path dependency for all partner traffic. That would make the system easier to reason about, but it would also make it more expensive and more latency-sensitive.
+
+If FALCON were only a token issuer and never provided introspection, pause and revoke state would be slower and less authoritative at runtime.
+
+The hybrid approach is the compromise:
+
+- local JWT verification keeps the common path fast
+- FALCON introspection preserves authoritative state when local verification is not enough
+
+## How Target Apps Should Fail
+
+When verification fails, fail deliberately and explain the reason in logs. The difference between an expired token, an inactive connection, an audience mismatch, and a scope mismatch matters during support and debugging.
+
+Treat runtime token failures as part of your normal integration behavior, not as impossible edge cases. Connections can be paused. Users can revoke them. Keys can rotate. Tokens expire. A robust target integration handles those cases cleanly and predictably.

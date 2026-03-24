@@ -1,0 +1,73 @@
+---
+title: Demo Apps
+description: End-to-end reference apps for the Project Hub -> Incident Ops integration.
+icon: AppWindow
+---
+
+# Demo Apps
+
+The fastest way to understand the current Falcon Connect implementation is to run the two demo applications in this monorepo side by side.
+
+- **Project Hub** in `apps/demo-01` acts as the **source app**
+- **Incident Ops** in `apps/demo-02` acts as the **target app**
+
+This pairing is intentionally outside ecommerce so the examples do not feel limited to orders and invoices. The control-plane model is the same: one application wants to call another, Falcon Connect standardizes onboarding and verification, and the two applications still exchange business data directly.
+
+## Ports and Defaults
+
+- Falcon Connect server: `http://localhost:3500`
+- Project Hub source app: `http://localhost:4101`
+- Incident Ops target app: `http://localhost:4102`
+
+The Falcon server bootstraps the demo trusted apps, keys, callback URL, and target scopes automatically, so the demos work from a clean local checkout.
+
+## Demo Narrative
+
+Project Hub manages delivery-critical projects and wants live operational context from Incident Ops:
+
+- incident summaries
+- service health
+- on-call responders
+- runbooks
+
+Incident Ops owns those capabilities. It decides whether the current local user may approve the relationship, and it verifies every direct runtime request before returning data.
+
+## Shared Route Structure
+
+Both demo apps use the same teaching structure so the source and target roles are easy to compare:
+
+- `overview`
+- `mental-model`
+- `connect-flow`
+- `runtime-calls`
+- `sdk-internals`
+
+Project Hub also exposes `connect-flow/callback`, and Incident Ops adds `login` plus its runtime API routes.
+
+## Exact Local Walkthrough
+
+1. Start Falcon Connect with `bun run dev:server`.
+2. Start `demo-01` and `demo-02`.
+3. Open `http://localhost:4101/connect-flow`.
+4. In Project Hub, create the install intent.
+5. The browser lands on `http://localhost:4102/connect-flow?falcon_connect_intent=...`.
+6. In Incident Ops, sign in locally as `Lena Hart` to approve or `Rory Vale` to observe the role gate.
+7. Review the resolved intent, adjust optional scopes, and approve or deny.
+8. Falcon redirects back to `http://localhost:4101/connect-flow/callback`.
+9. In Project Hub, open `Runtime Calls`, mint a connection token, and call the Incident Ops runtime endpoints.
+10. In Incident Ops, use `Runtime Calls` to inspect verification payloads with either local verification or forced introspection.
+
+## What The Demos Cover
+
+- install intent creation
+- target-side intent resolution
+- local target auth and role checks
+- consent selection helpers
+- callback parsing and `connectionId` persistence
+- runtime token issuance
+- direct source-to-target API calls
+- local JWT verification
+- Falcon introspection fallback
+- low-level signed request and JWT helper inspection
+
+Continue with [Source App Integration](/docs/source-app-integration) and [Target App Integration](/docs/target-app-integration) for the role-specific guidance.

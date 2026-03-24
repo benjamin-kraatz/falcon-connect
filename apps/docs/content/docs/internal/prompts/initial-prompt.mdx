@@ -1,0 +1,23 @@
+---
+title: Initial Prompt
+description: Initial prompt for the FALCON Connect docs
+---
+
+This project is FALCON Connect. What this is is basically already documented in the readmes, but here is a rough overview. It's conceptually very similar and might remind you of OAuth.
+In simple terms, Falcon Connect is an infrastructure that manages connections between apps with the purpose of exchanging data. It does not provide the infrastructure to exchange the data but a registry and verification proxy for making that easier.
+A sample flow is as follows:
+Imagine we have two applications:
+
+- Application A wants to exchange data with Application B.
+- For example, we have an invoice management application and an order management application.
+  Now imagine the user in the invoice application wants to enrich the invoice information with actual order data that an invoice is based on. This information, as long as both applications are using the same user identity or shop in terms of orders and invoices, is present in the order management application. To exchange the data, what App A could do (so the invoice management app could do) is simply call some REST API endpoint over at the order management application. The order management application authorizes, verifies, checks, and so on and so forth, and then returns back the data that is requested. However, this doesn't scale well. Imagine having ten applications, each with their own domain, but having the data some kind of related, so the user might want to exchange the data from each of the services.
+
+What we would have to do is to build REST APIs in verification, authorization, API key management, and what not for each of the services. This is where Falcon Connect comes in. Falcon Connect centralizes and unifies the service integration or application integration process. Here's the flow with application registration managed by Falcon Connect. When the user in the invoice management application wants to enrich the invoice information with actual order data that they already own in the order management application, they simply go to the invoice management application's settings page. There, they can see an entry called something like "Connect With Order Management Application". When they click on "Connect", they get redirected to the order management application and either sign in with the same account, or, if they already signed in, they now have to confirm the connection. They also see what permissions are requested (scopes and capabilities) and can turn on or off each of them. Then they hit "Connect", and they get redirected back to the invoice management application, and now they see that both apps are connected.
+
+This exchange, or rather the installation request or connection request, also contains the base URL of the order management application that the invoice management application can now use to make requests for data exchange. That's a little information just to make sure that they talk to the same address if you want. Important: Falcon Connect does not manage the data exchange itself.
+
+What Falcon Connect has done here is that it now knows which application is connected to what application for a specific user and maybe a specific organization that the user has installed the application on. Therefore, if the invoice management application now wants to talk and exchange data with the order management application, they can just hit the endpoint and include the connection key or whatever that identifies this set up connection. The order management application on the endpoint can check if this connection exists and is not paused or revoked, and then just return the data. Of course, authorization with the user ID that the connection has made and so on and so forth. Totally flexible, but yeah, this is a unified way, I guess, more convenient than doing it all the time manually, one by one each time.
+
+There is an empty package scaffolded in the packages directory called SDK. We first class support TypeScript for the implementation into real applications. All the logic should come into the API and DB package and into the server application for providing the actual infrastructure.
+
+Now, if you have any questions, please feel free to ask. There is no question too much, and no question is too awkward. Just ask so that everything is clear from the beginning. We are on the same page, and we are talking about the same things. Then make a plan to implement Falcon Connect with me.

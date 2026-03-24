@@ -1,0 +1,69 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+@import "@falcon/ui/globals.css";
+
+:root {
+  --bg: #0d0e12;
+  --panel: #13141a;
+  --panel-strong: #0f1015;
+  --ink: #f1f2f5;
+  --muted: #9da3b4;
+  --accent: #6366f1;
+  --accent-dim: rgba(99, 102, 241, 0.12);
+  --accent-ring: rgba(99, 102, 241, 0.35);
+  --line: rgba(255, 255, 255, 0.08);
+  --good: #4ade80;
+  --warn: #fb923c;
+  --bad: #f87171;
+
+  /* Override shadcn theme tokens so globals.css base layer uses our colors */
+  --background: #0d0e12;
+  --foreground: #f1f2f5;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+html {
+  background: #0d0e12;
+  font-family: "Inter", sans-serif;
+  color: #f1f2f5;
+}
+
+body {
+  margin: 0;
+  color: #f1f2f5;
+  overflow-x: hidden;
+  background-color: #0d0e12;
+  background-image: radial-gradient(
+    ellipse 80% 320px at 50% -60px,
+    rgba(99, 102, 241, 0.12),
+    transparent
+  );
+  background-attachment: fixed;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+code,
+pre {
+  font-family: "IBM Plex Mono", monospace;
+}

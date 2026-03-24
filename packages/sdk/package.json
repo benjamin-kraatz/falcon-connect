@@ -7,14 +7,21 @@
     },
     "./*": {
       "default": "./src/*.ts"
+    },
+    "./effect": {
+      "default": "./src/effect/index.ts"
     }
   },
   "scripts": {},
+  "dependencies": {
+    "jose": "^6.2.2"
+  },
   "devDependencies": {
-    "@falcon/config": "workspace:*",
+    "@falcon/config": "file:../config",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "zod": "^4.1.13"
+    "effect": "^3.21.0",
+    "zod": "^4.3.6"
   }
 }

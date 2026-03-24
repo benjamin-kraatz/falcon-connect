@@ -1,31 +1,62 @@
 ---
-title: Hello World
-description: Your favourite docs framework.
-icon: Rocket
+title: FALCON Connect
+description: The partner-facing handbook for building on the FALCON Connect control plane.
+icon: Shield
 ---
 
-Hey there! Fumadocs is the docs framework that also works on Tanstack Start!
+# FALCON Connect
 
-## Heading
+FALCON Connect is a registry and verification control plane for trusted app-to-app integrations. It exists for a very specific problem: applications often need to exchange related data across product boundaries, but every pair of applications should not have to invent its own onboarding, consent, verification, and revocation model.
 
-Hello World!
+That is the role of FALCON Connect. It standardizes the infrastructure around the integration while leaving the actual domain data exchange in the hands of the participating applications.
 
-<Cards>
-  <Card title="Learn more about Tanstack Start" href="https://tanstack.com/start" />
-  <Card title="Learn more about Fumadocs" href="https://fumadocs.dev" />
-</Cards>
+In other words, FALCON Connect does **not** transport your invoices, orders, catalog entries, or fulfillment records. App A still talks directly to App B. What FALCON Connect manages is the question of whether that relationship exists, under which identity and organization scope it exists, which scopes were granted, and how App B can verify a runtime request without building a custom partner verification stack from scratch.
 
-### CodeBlock
+## The Mental Model
 
-```ts
-console.log("Hello World");
-```
+If OAuth is a useful reference point in your head, FALCON Connect occupies a parallel space for service integration rather than for authentication.
 
-#### Table
+The closest analogy is this:
 
-| Head                            | Description                         |
-| ------------------------------- | ----------------------------------- |
-| `hello`                         | Hello World                         |
-| very **important**              | Hey                                 |
-| _Surprisingly_                  | Fumadocs                            |
-| very long text that looks weird | hello world hello world hello world |
+- the **source app** is the application that wants to call another application
+- the **target app** is the application that exposes the data or capability
+- FALCON Connect is the shared control plane that knows whether the relationship exists and how it should be verified
+
+This distinction matters because it explains a design choice that appears everywhere in the system: FALCON Connect manages **connection state**, not domain payloads.
+
+## What V1 Supports
+
+The current implementation is opinionated on purpose. Partner-facing documentation should make those constraints explicit rather than leave them implicit.
+
+- Trusted apps are registered manually by FALCON staff.
+- Connections are directional. If App A can call App B, that does not imply that App B can call App A.
+- Connection state is keyed by `falconSubjectId` and `organizationId`.
+- The target app owns the actual user authentication and consent screen.
+- Runtime verification is hybrid: local JWT verification first, FALCON introspection when local verification is insufficient or stale.
+- The first mandatory FALCON system scope is `read:app-info`.
+
+## What This Documentation Covers
+
+This documentation is written for partner engineers who need to integrate an application with FALCON Connect. It focuses on the protocol and implementation details that matter when you are building the integration, not just on the product story.
+
+The recommended reading order is:
+
+1. [Quickstart](./quickstart) for the shortest path to understanding the flow.
+2. [Demo Apps](./demos) to see the Project Hub -> Incident Ops reference pair.
+3. [Registration and Keys](./registration-and-keys) to understand trusted app metadata and request signing.
+4. [Connection Lifecycle](./connection-lifecycle) to see the full protocol from install intent to live runtime calls.
+5. [Source App Integration](./source-app-integration) if you are building the calling side.
+6. [Target App Integration](./target-app-integration) if you are building the receiving side.
+7. [SDK Usage Guide](./sdk-usage-guide) for copy-paste TypeScript snippets.
+8. [Runtime Verification](./runtime-verification) for the runtime token contract.
+9. [Architecture](./architecture) for the resource model and trust boundaries.
+10. [Security and Operations](./security-and-operations) for replay protection, state transitions, and the ops model.
+11. [Troubleshooting](./troubleshooting) when things go wrong.
+
+## A Short Narrative Example
+
+Imagine an invoice application and an order management application. A user is viewing an invoice and wants to enrich it with the order data it originated from. Without FALCON Connect, both teams need to negotiate integration rules directly: how apps are identified, how keys are exchanged, how a user consents, how revocation works, and how every runtime request is verified.
+
+With FALCON Connect, the source app creates an install intent for the target app. The user is redirected to the target app, signs in there if needed, sees which scopes are being requested, and approves the connection. FALCON Connect stores that directional relationship. Later, when the invoice application wants to call the order application, it mints a FALCON-issued runtime token for the established connection. The order application verifies that token locally, and when necessary asks FALCON for an authoritative state check.
+
+That is the whole product in one paragraph: FALCON Connect turns partner integration state into a standard, reusable control plane.
