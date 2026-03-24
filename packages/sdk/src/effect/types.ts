@@ -1,0 +1,17 @@
+import { Schema } from "effect";
+
+/**
+ * A valid Falcon application identifier (255 chars max).
+ */
+export const AppId = Schema.String.pipe(
+  Schema.minLength(1),
+  Schema.maxLength(255),
+  Schema.brand("AppId"),
+);
+export type AppId = typeof AppId.Type;
+
+/**
+ * A valid Falcon request URL.
+ */
+export const FalconRequestUrl = Schema.URL.pipe(Schema.brand("FalconRequestUrl"));
+export type FalconRequestUrl = typeof FalconRequestUrl.Type;
