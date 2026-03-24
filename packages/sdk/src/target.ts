@@ -1,15 +1,21 @@
 import {
   decideInstallIntentInputSchema,
   decideInstallIntentResultSchema,
+  findIncomingConnectionInputSchema,
   introspectConnectionInputSchema,
   introspectionResultSchema,
   resolveInstallIntentInputSchema,
   resolvedInstallIntentSchema,
   type DecideInstallIntentInput,
   type DecideInstallIntentResult,
+  type FindIncomingConnectionInput,
   type IntrospectConnectionInput,
   type IntrospectionResult,
   type ResolvedInstallIntent,
+  connectionRecordSchema,
+  updateConnectionStatusInputSchema,
+  type ConnectionRecord,
+  type UpdateConnectionStatusInput,
 } from "./protocol";
 import { createFalconAppAuthHeaders, decodeJwtUnsafe, verifyConnectionAccessToken } from "./crypto";
 import { normalizeGrantedScopes } from "./ui";
@@ -102,6 +108,28 @@ export class FalconConnectTargetClient {
       introspectConnectionInputSchema.parse(input),
       introspectionResultSchema,
       "/v1/connections/introspect",
+    );
+  }
+
+  async findIncomingConnection(
+    input: FindIncomingConnectionInput,
+  ): Promise<ConnectionRecord | null> {
+    return signedJsonRequest(
+      this.options,
+      findIncomingConnectionInputSchema.parse(input),
+      {
+        parse: (value) => (value == null ? null : connectionRecordSchema.parse(value)),
+      },
+      "/v1/connections/incoming",
+    );
+  }
+
+  async updateConnectionStatus(input: UpdateConnectionStatusInput): Promise<ConnectionRecord> {
+    return signedJsonRequest(
+      this.options,
+      updateConnectionStatusInputSchema.parse(input),
+      connectionRecordSchema,
+      "/v1/connections/status",
     );
   }
 

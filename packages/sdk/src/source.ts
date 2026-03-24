@@ -5,12 +5,14 @@ import {
   findConnectionInputSchema,
   issueConnectionTokenInputSchema,
   issueConnectionTokenResultSchema,
+  updateConnectionStatusInputSchema,
   type CreateInstallIntentInput,
   type CreateInstallIntentResult,
   type FindConnectionInput,
   type ConnectionRecord,
   type IssueConnectionTokenInput,
   type IssueConnectionTokenResult,
+  type UpdateConnectionStatusInput,
 } from "./protocol";
 import { createFalconAppAuthHeaders } from "./crypto";
 
@@ -87,6 +89,15 @@ export class FalconConnectSourceClient {
         parse: (value) => (value == null ? null : connectionRecordSchema.parse(value)),
       },
       "/v1/connections/find",
+    );
+  }
+
+  async updateConnectionStatus(input: UpdateConnectionStatusInput): Promise<ConnectionRecord> {
+    return signedJsonRequest(
+      this.options,
+      updateConnectionStatusInputSchema.parse(input),
+      connectionRecordSchema,
+      "/v1/connections/status",
     );
   }
 

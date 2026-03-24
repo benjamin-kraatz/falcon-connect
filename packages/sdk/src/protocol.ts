@@ -158,6 +158,12 @@ export const findConnectionInputSchema = z.object({
   organizationId: z.string().min(1),
 });
 
+export const findIncomingConnectionInputSchema = z.object({
+  sourceAppId: z.string().min(1),
+  falconSubjectId: z.string().min(1),
+  organizationId: z.string().min(1),
+});
+
 export const connectionAccessTokenClaimsSchema = z.object({
   kind: z.literal("falcon-connect-connection"),
   connectionId: z.string().min(1),
@@ -256,6 +262,7 @@ export type DecideInstallIntentResult = z.infer<typeof decideInstallIntentResult
 export type ConnectionRecord = z.infer<typeof connectionRecordSchema>;
 export type IssueConnectionTokenInput = z.infer<typeof issueConnectionTokenInputSchema>;
 export type FindConnectionInput = z.infer<typeof findConnectionInputSchema>;
+export type FindIncomingConnectionInput = z.infer<typeof findIncomingConnectionInputSchema>;
 export type ConnectionAccessTokenClaims = z.infer<typeof connectionAccessTokenClaimsSchema>;
 export type IssueConnectionTokenResult = z.infer<typeof issueConnectionTokenResultSchema>;
 export type IntrospectConnectionInput = z.infer<typeof introspectConnectionInputSchema>;
