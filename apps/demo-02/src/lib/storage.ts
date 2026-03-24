@@ -1,4 +1,4 @@
-import type { DecideInstallIntentResult, ResolvedInstallIntent } from "@falcon/sdk";
+import type { DecideInstallIntentResult, ResolvedInstallIntent } from "@falcon/sdk/effect";
 
 import type { IncidentSession } from "./demo-data";
 

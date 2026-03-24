@@ -10,18 +10,19 @@ import {
   trustedAppScope,
 } from "@falcon/db/schema/connect";
 import { env } from "@falcon/env/server";
+import { Effect, Schema } from "effect";
 import {
-  FALCON_APP_AUTH_HEADERS,
   DEFAULT_APP_REQUEST_TTL_SECONDS,
   DEFAULT_CONNECTION_TOKEN_TTL_SECONDS,
   DEFAULT_INSTALL_INTENT_TTL_SECONDS,
-  decodeJwtUnsafe,
-  getPublicJwk,
+  FALCON_APP_AUTH_HEADERS,
+  decodeJwtUnsafeEffect,
+  getPublicJwkEffect,
   parseJwk,
-  signConnectionAccessToken,
-  signInstallIntentToken,
-  verifyFalconAppRequest,
-} from "@falcon/sdk";
+  signConnectionAccessTokenEffect,
+  signInstallIntentTokenEffect,
+  verifyFalconAppRequestEffect,
+} from "@falcon/sdk/effect";
 import type {
   ConnectionRecord,
   CreateInstallIntentResult,
@@ -31,18 +32,23 @@ import type {
   OpsOverview,
   ResolvedInstallIntent,
   TrustedAppManifest,
-} from "@falcon/sdk";
+} from "@falcon/sdk/effect";
 import {
-  connectionAccessTokenClaimsSchema,
-  createInstallIntentInputSchema,
-  decideInstallIntentInputSchema,
-  findConnectionInputSchema,
-  findIncomingConnectionInputSchema,
-  installIntentRecordSchema,
-  introspectConnectionInputSchema,
-  issueConnectionTokenInputSchema,
-  updateConnectionStatusInputSchema,
-} from "@falcon/sdk";
+  ConnectionAccessTokenClaims,
+  ConnectionRecord as ConnectionRecordSchema,
+  CreateInstallIntentInput,
+  DecideInstallIntentInput,
+  DecideInstallIntentResult as DecideInstallIntentResultSchema,
+  FindConnectionInput,
+  FindIncomingConnectionInput,
+  InstallIntentRecord as InstallIntentRecordSchema,
+  IntrospectConnectionInput,
+  IssueConnectionTokenInput,
+  IssueConnectionTokenResult as IssueConnectionTokenResultSchema,
+  ResolvedInstallIntent as ResolvedInstallIntentSchema,
+  TrustedAppManifest as TrustedAppManifestSchema,
+  UpdateConnectionStatusInput,
+} from "@falcon/sdk/effect";
 import { and, count, desc, eq, inArray } from "drizzle-orm";
 import { importJWK, jwtVerify } from "jose";
 
@@ -359,6 +365,14 @@ function ensure(
   }
 }
 
+function decodeApiInput<A>(schema: Schema.Schema<A>, raw: unknown): A {
+  return Effect.runSync(
+    Schema.decodeUnknown(schema)(raw).pipe(
+      Effect.mapError(() => new FalconConnectError(400, "INVALID_INPUT", "Request body failed validation")),
+    ),
+  );
+}
+
 async function getTrustedAppRow(appId: string) {
   const [row] = await db.select().from(trustedApp).where(eq(trustedApp.id, appId)).limit(1);
 
@@ -376,16 +390,18 @@ async function getTrustedAppScopeRows(appId: string) {
 async function mapTrustedAppManifestFromRow(row: TrustedAppRow): Promise<TrustedAppManifest> {
   const scopes = await getTrustedAppScopeRows(row.id);
 
-  return {
+  const allowedRedirectUrls = parseJsonArray(row.allowedRedirectUrlsJson).map((u) => new URL(u));
+
+  return decodeApiInput(TrustedAppManifestSchema, {
     id: row.id,
     slug: row.slug,
     displayName: row.displayName,
-    status: row.status as TrustedAppManifest["status"],
-    connectRequestUrl: row.connectRequestUrl,
-    dataApiBaseUrl: row.dataApiBaseUrl,
-    allowedRedirectUrls: parseJsonArray(row.allowedRedirectUrlsJson),
-    supportEmail: row.supportEmail,
-    supportUrl: row.supportUrl,
+    status: row.status,
+    connectRequestUrl: new URL(row.connectRequestUrl),
+    dataApiBaseUrl: new URL(row.dataApiBaseUrl),
+    allowedRedirectUrls,
+    supportEmail: row.supportEmail ?? undefined,
+    supportUrl: row.supportUrl ? new URL(row.supportUrl) : undefined,
     scopes: scopes.map((scope) => ({
       name: scope.scopeName,
       displayName: scope.displayName,
@@ -393,9 +409,9 @@ async function mapTrustedAppManifestFromRow(row: TrustedAppRow): Promise<Trusted
       requiredByDefault: scope.requiredByDefault,
       system: scope.systemScope,
     })),
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-  };
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+  });
 }
 
 async function getTrustedAppManifest(appId: string) {
@@ -449,14 +465,14 @@ function mapConnectionRecord(
   row: ConnectionRow,
   grants: ConnectionScopeGrantRow[],
 ): ConnectionRecord {
-  return {
+  return decodeApiInput(ConnectionRecordSchema, {
     id: row.id,
     sourceAppId: row.sourceAppId,
     targetAppId: row.targetAppId,
     falconSubjectId: row.falconSubjectId,
     organizationId: row.organizationId,
-    status: row.status as ConnectionRecord["status"],
-    targetDataApiBaseUrl: row.targetDataApiBaseUrl,
+    status: row.status,
+    targetDataApiBaseUrl: new URL(row.targetDataApiBaseUrl),
     grantedScopes: grants.map((grant) => ({
       name: grant.scopeName,
       displayName: grant.displayName,
@@ -465,17 +481,17 @@ function mapConnectionRecord(
       system: grant.system,
       selected: grant.granted,
     })),
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
-    activatedAt: toIsoString(row.activatedAt),
-    pausedAt: toIsoString(row.pausedAt),
-    revokedAt: toIsoString(row.revokedAt),
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    activatedAt: row.activatedAt,
+    pausedAt: row.pausedAt,
+    revokedAt: row.revokedAt,
     revocationReason: row.revocationReason,
-  };
+  });
 }
 
 function mapInstallIntentRecord(row: InstallIntentRow): InstallIntentRecord {
-  return installIntentRecordSchema.parse({
+  return decodeApiInput(InstallIntentRecordSchema, {
     id: row.id,
     sourceAppId: row.sourceAppId,
     targetAppId: row.targetAppId,
@@ -483,10 +499,10 @@ function mapInstallIntentRecord(row: InstallIntentRow): InstallIntentRecord {
     organizationId: row.organizationId,
     status: row.status,
     requestedScopes: parseJsonArray(row.requestedScopesJson),
-    sourceReturnUrl: row.sourceReturnUrl,
-    expiresAt: row.expiresAt.toISOString(),
-    createdAt: row.createdAt.toISOString(),
-    updatedAt: row.updatedAt.toISOString(),
+    sourceReturnUrl: new URL(row.sourceReturnUrl),
+    expiresAt: row.expiresAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
   });
 }
 
@@ -617,7 +633,7 @@ async function upsertConnection(input: {
 }
 
 async function verifyInternalInstallIntentToken(token: string, audience: string) {
-  const publicJwk = await getPublicJwk(getFalconSigningPrivateJwk());
+  const publicJwk = await Effect.runPromise(getPublicJwkEffect(getFalconSigningPrivateJwk()));
   const key = await importJWK(publicJwk, "EdDSA");
   const { payload } = await jwtVerify(token, key, {
     issuer: getFalconIssuer(),
@@ -637,7 +653,7 @@ function getScopeNamesFromGrants(grants: ConnectionScopeGrantRow[]) {
 }
 
 export async function getFalconJwks() {
-  const publicJwk = await getPublicJwk(getFalconSigningPrivateJwk());
+  const publicJwk = await Effect.runPromise(getPublicJwkEffect(getFalconSigningPrivateJwk()));
 
   return {
     keys: [
@@ -654,8 +670,8 @@ export async function getFalconJwks() {
 export async function ensureDemoTrustedAppsRegistered() {
   demoTrustedAppsBootstrapPromise ??= (async () => {
     const [sourcePublicJwk, targetPublicJwk] = await Promise.all([
-      getPublicJwk(DEMO_SOURCE_APP.privateJwk),
-      getPublicJwk(DEMO_TARGET_APP.privateJwk),
+      Effect.runPromise(getPublicJwkEffect(DEMO_SOURCE_APP.privateJwk)),
+      Effect.runPromise(getPublicJwkEffect(DEMO_TARGET_APP.privateJwk)),
     ]);
 
     await Promise.all([
@@ -745,17 +761,19 @@ export async function authenticateTrustedAppRequest(input: {
   ensure(keyRow, 401, "KEY_UNKNOWN", "The trusted app key is not registered");
   ensure(keyRow.status === "active", 403, "KEY_INACTIVE", "The trusted app key is not active");
 
-  const verified = await verifyFalconAppRequest({
-    appId,
-    keyId,
-    publicJwk: keyRow.publicJwkJson,
-    method: input.method,
-    url: input.url,
-    body: input.body ?? "",
-    timestamp,
-    nonce,
-    signature,
-  });
+  const verified = await Effect.runPromise(
+    verifyFalconAppRequestEffect({
+      appId,
+      keyId,
+      publicJwk: keyRow.publicJwkJson,
+      method: input.method,
+      url: input.url,
+      body: input.body ?? "",
+      timestamp,
+      nonce,
+      signature,
+    }),
+  );
 
   ensure(verified, 401, "SIGNATURE_INVALID", "The Falcon app request signature is invalid");
 
@@ -791,7 +809,7 @@ export async function createInstallIntent(
   auth: AuthenticatedAppRequest,
   rawInput: unknown,
 ): Promise<CreateInstallIntentResult> {
-  const input = createInstallIntentInputSchema.parse(rawInput);
+  const input = decodeApiInput(CreateInstallIntentInput, rawInput);
   const sourceAllowedRedirects = new Set(auth.app.allowedRedirectUrls);
 
   ensure(
@@ -849,21 +867,23 @@ export async function createInstallIntent(
     },
   });
 
-  const intentToken = await signInstallIntentToken(
-    Object.assign(
-      {
-        privateJwk: getFalconSigningPrivateJwk(),
-        keyId: getFalconSigningKeyId(),
-        issuer: getFalconIssuer(),
-        audience: targetRow.id,
-        claims: {
-          kind: "falcon-connect-install-intent" as const,
-          intentId,
-          sourceAppId: auth.app.id,
-          targetAppId: targetRow.id,
+  const intentToken = await Effect.runPromise(
+    signInstallIntentTokenEffect(
+      Object.assign(
+        {
+          privateJwk: getFalconSigningPrivateJwk(),
+          keyId: getFalconSigningKeyId(),
+          issuer: getFalconIssuer(),
+          audience: targetRow.id,
+          claims: {
+            kind: "falcon-connect-install-intent" as const,
+            intentId,
+            sourceAppId: auth.app.id,
+            targetAppId: targetRow.id,
+          },
         },
-      },
-      input.expiresInSeconds == null ? {} : { expiresInSeconds: input.expiresInSeconds },
+        input.expiresInSeconds == null ? {} : { expiresInSeconds: input.expiresInSeconds },
+      ),
     ),
   );
 
@@ -873,8 +893,8 @@ export async function createInstallIntent(
   return {
     intentId,
     intentToken,
-    connectUrl: connectUrl.toString(),
-    expiresAt: expiresAt.toISOString(),
+    connectUrl: new URL(connectUrl.toString()),
+    expiresAt,
     sourceAppId: auth.app.id,
     targetAppId: targetRow.id,
     requestedScopes,
@@ -938,9 +958,9 @@ export async function resolveInstallIntent(
   const requestedScopes = parseJsonArray(intentRow.requestedScopesJson);
   const scopes = buildDecisionScopes(targetScopes, requestedScopes);
 
-  return {
+  return decodeApiInput(ResolvedInstallIntentSchema, {
     intentId: intentRow.id,
-    status: intentRow.status as ResolvedInstallIntent["status"],
+    status: intentRow.status,
     sourceApp: {
       id: sourceManifest.id,
       slug: sourceManifest.slug,
@@ -959,17 +979,17 @@ export async function resolveInstallIntent(
     },
     falconSubjectId: intentRow.falconSubjectId,
     organizationId: intentRow.organizationId,
-    sourceReturnUrl: intentRow.sourceReturnUrl,
+    sourceReturnUrl: new URL(intentRow.sourceReturnUrl),
     scopes,
-    expiresAt: intentRow.expiresAt.toISOString(),
-  };
+    expiresAt: intentRow.expiresAt,
+  });
 }
 
 export async function decideInstallIntent(
   auth: AuthenticatedAppRequest,
   rawInput: unknown,
 ): Promise<DecideInstallIntentResult> {
-  const input = decideInstallIntentInputSchema.parse(rawInput);
+  const input = decodeApiInput(DecideInstallIntentInput, rawInput);
   const verified = await verifyInternalInstallIntentToken(input.intentToken, auth.app.id);
   const [intentRow, targetRow] = await Promise.all([
     db
@@ -999,15 +1019,17 @@ export async function decideInstallIntent(
       })
       .where(eq(installIntent.id, intentRow.id));
 
-    return {
+    return decodeApiInput(DecideInstallIntentResultSchema, {
       status: "expired",
       connection: null,
-      redirectUrl: buildCallbackUrl(intentRow.sourceReturnUrl, {
-        falcon_connect_status: "expired",
-        falcon_connect_intent_id: intentRow.id,
-        falcon_connect_reason: "Install intent expired",
-      }),
-    };
+      redirectUrl: new URL(
+        buildCallbackUrl(intentRow.sourceReturnUrl, {
+          falcon_connect_status: "expired",
+          falcon_connect_intent_id: intentRow.id,
+          falcon_connect_reason: "Install intent expired",
+        }),
+      ),
+    });
   }
 
   const targetScopes = await getTrustedAppScopeRows(targetRow.id);
@@ -1035,15 +1057,17 @@ export async function decideInstallIntent(
       },
     });
 
-    return {
+    return decodeApiInput(DecideInstallIntentResultSchema, {
       status: "denied",
       connection: null,
-      redirectUrl: buildCallbackUrl(intentRow.sourceReturnUrl, {
-        falcon_connect_status: "denied",
-        falcon_connect_intent_id: intentRow.id,
-        falcon_connect_reason: input.deniedReason ?? "Denied by target app",
-      }),
-    };
+      redirectUrl: new URL(
+        buildCallbackUrl(intentRow.sourceReturnUrl, {
+          falcon_connect_status: "denied",
+          falcon_connect_intent_id: intentRow.id,
+          falcon_connect_reason: input.deniedReason ?? "Denied by target app",
+        }),
+      ),
+    });
   }
 
   const allowedScopeNames = new Set(decisionScopes.map((scope) => scope.name));
@@ -1100,19 +1124,21 @@ export async function decideInstallIntent(
     },
   });
 
-  return {
+  return decodeApiInput(DecideInstallIntentResultSchema, {
     status: "approved",
     connection: connectionRecord,
-    redirectUrl: buildCallbackUrl(intentRow.sourceReturnUrl, {
-      falcon_connect_status: "approved",
-      falcon_connect_intent_id: intentRow.id,
-      falcon_connect_connection_id: connectionRecord.id,
-    }),
-  };
+    redirectUrl: new URL(
+      buildCallbackUrl(intentRow.sourceReturnUrl, {
+        falcon_connect_status: "approved",
+        falcon_connect_intent_id: intentRow.id,
+        falcon_connect_connection_id: connectionRecord.id,
+      }),
+    ),
+  });
 }
 
 export async function issueConnectionAccessToken(auth: AuthenticatedAppRequest, rawInput: unknown) {
-  const input = issueConnectionTokenInputSchema.parse(rawInput);
+  const input = decodeApiInput(IssueConnectionTokenInput, rawInput);
   const [connectionRow] = await db
     .select()
     .from(connection)
@@ -1128,24 +1154,26 @@ export async function issueConnectionAccessToken(auth: AuthenticatedAppRequest, 
   );
 
   const grants = await getConnectionScopeGrants(connectionRow.id);
-  const token = await signConnectionAccessToken({
-    privateJwk: getFalconSigningPrivateJwk(),
-    keyId: getFalconSigningKeyId(),
-    issuer: getFalconIssuer(),
-    audience: connectionRow.targetAppId,
-    subject: connectionRow.falconSubjectId,
-    claims: {
-      kind: "falcon-connect-connection",
-      connectionId: connectionRow.id,
-      sourceAppId: connectionRow.sourceAppId,
-      targetAppId: connectionRow.targetAppId,
-      falconSubjectId: connectionRow.falconSubjectId,
-      organizationId: connectionRow.organizationId,
-      scopes: getScopeNamesFromGrants(grants),
-    },
-    expiresInSeconds: input.expiresInSeconds ?? DEFAULT_CONNECTION_TOKEN_TTL_SECONDS,
-  });
-  const claims = connectionAccessTokenClaimsSchema.parse(decodeJwtUnsafe(token));
+  const token = await Effect.runPromise(
+    signConnectionAccessTokenEffect({
+      privateJwk: getFalconSigningPrivateJwk(),
+      keyId: getFalconSigningKeyId(),
+      issuer: getFalconIssuer(),
+      audience: connectionRow.targetAppId,
+      subject: connectionRow.falconSubjectId,
+      claims: {
+        kind: "falcon-connect-connection",
+        connectionId: connectionRow.id,
+        sourceAppId: connectionRow.sourceAppId,
+        targetAppId: connectionRow.targetAppId,
+        falconSubjectId: connectionRow.falconSubjectId,
+        organizationId: connectionRow.organizationId,
+        scopes: getScopeNamesFromGrants(grants),
+      },
+      expiresInSeconds: input.expiresInSeconds ?? DEFAULT_CONNECTION_TOKEN_TTL_SECONDS,
+    }),
+  );
+  const claims = decodeApiInput(ConnectionAccessTokenClaims, Effect.runSync(decodeJwtUnsafeEffect(token)));
 
   await insertAuditEvent({
     connectionId: connectionRow.id,
@@ -1158,15 +1186,15 @@ export async function issueConnectionAccessToken(auth: AuthenticatedAppRequest, 
     },
   });
 
-  return {
+  return decodeApiInput(IssueConnectionTokenResultSchema, {
     token,
-    expiresAt: new Date(claims.exp * 1000).toISOString(),
+    expiresAt: new Date(claims.exp * 1000),
     claims,
-  };
+  });
 }
 
 export async function findConnection(auth: AuthenticatedAppRequest, rawInput: unknown) {
-  const input = findConnectionInputSchema.parse(rawInput);
+  const input = decodeApiInput(FindConnectionInput, rawInput);
   const candidates = await db
     .select()
     .from(connection)
@@ -1199,8 +1227,10 @@ export async function introspectConnection(
   auth: AuthenticatedAppRequest,
   rawInput: unknown,
 ): Promise<IntrospectionResult> {
-  const input = introspectConnectionInputSchema.parse(rawInput);
-  const decoded = input.connectionToken ? decodeJwtUnsafe(input.connectionToken) : null;
+  const input = decodeApiInput(IntrospectConnectionInput, rawInput);
+  const decoded = input.connectionToken
+    ? Effect.runSync(decodeJwtUnsafeEffect(input.connectionToken))
+    : null;
   const connectionId =
     input.connectionId ?? (typeof decoded?.connectionId === "string" ? decoded.connectionId : null);
 
@@ -1261,7 +1291,7 @@ export async function introspectConnection(
 }
 
 export async function findIncomingConnection(auth: AuthenticatedAppRequest, rawInput: unknown) {
-  const input = findIncomingConnectionInputSchema.parse(rawInput);
+  const input = decodeApiInput(FindIncomingConnectionInput, rawInput);
   const candidates = await db
     .select()
     .from(connection)
@@ -1393,7 +1423,7 @@ export async function updateConnectionStatusForApp(
   auth: AuthenticatedAppRequest,
   rawInput: unknown,
 ) {
-  const input = updateConnectionStatusInputSchema.parse(rawInput);
+  const input = decodeApiInput(UpdateConnectionStatusInput, rawInput);
   const [connectionRow] = await db
     .select()
     .from(connection)
@@ -1459,7 +1489,7 @@ export async function updateConnectionStatusForApp(
 }
 
 export async function updateConnectionStatus(rawInput: unknown) {
-  const input = updateConnectionStatusInputSchema.parse(rawInput);
+  const input = decodeApiInput(UpdateConnectionStatusInput, rawInput);
   const [connectionRow] = await db
     .select()
     .from(connection)

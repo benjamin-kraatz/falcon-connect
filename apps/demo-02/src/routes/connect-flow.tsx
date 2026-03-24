@@ -1,4 +1,4 @@
-import { buildConsentSelection, normalizeGrantedScopes } from "@falcon/sdk";
+import { buildConsentSelection, normalizeGrantedScopes } from "@falcon/sdk/effect";
 import { createFileRoute } from "@tanstack/react-router";
 import { startTransition, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";

@@ -1,15 +1,17 @@
+import { Effect } from "effect";
 import {
+  AppId,
   canonicalizeFalconAppRequest,
   createFalconAppAuthHeaders,
-  createFalconConnectSourceClient,
-  decodeJwtUnsafe,
-  getPublicJwk,
+  decodeJwtUnsafeEffect,
+  getPublicJwkEffect,
+  makeFalconConnectSourceService,
   signFalconAppRequest,
-  verifyConnectionAccessToken,
-  verifyInstallIntentToken,
+  verifyConnectionAccessTokenEffect,
+  verifyInstallIntentTokenEffect,
   type CreateInstallIntentResult,
   type IssueConnectionTokenResult,
-} from "@falcon/sdk";
+} from "@falcon/sdk/effect";
 
 import { sourceDemoConfig } from "./config";
 
@@ -59,9 +61,9 @@ export type SourceSdkDiagnostics = {
   } | null;
 };
 
-export const sourceClient = createFalconConnectSourceClient({
-  baseUrl: sourceDemoConfig.falconBaseUrl,
-  appId: sourceDemoConfig.appId,
+export const sourceClient = makeFalconConnectSourceService({
+  baseUrl: new URL(sourceDemoConfig.falconBaseUrl),
+  appId: AppId.make(sourceDemoConfig.appId),
   keyId: sourceDemoConfig.keyId,
   privateJwk: SOURCE_PRIVATE_JWK,
 });
@@ -77,55 +79,69 @@ export async function buildSourceSdkDiagnostics(input: {
   });
   const runtimeUrl = `${sourceDemoConfig.targetBaseUrl}/api/runtime/incidents`;
   const [publicJwk, signedRequest, authHeaders, canonical] = await Promise.all([
-    getPublicJwk(SOURCE_PRIVATE_JWK),
-    signFalconAppRequest({
-      appId: sourceDemoConfig.appId,
-      keyId: sourceDemoConfig.keyId,
-      privateJwk: SOURCE_PRIVATE_JWK,
-      method: "POST",
-      url: runtimeUrl,
-      body: demoBody,
-    }),
-    createFalconAppAuthHeaders({
-      appId: sourceDemoConfig.appId,
-      keyId: sourceDemoConfig.keyId,
-      privateJwk: SOURCE_PRIVATE_JWK,
-      method: "POST",
-      url: runtimeUrl,
-      body: demoBody,
-    }),
-    canonicalizeFalconAppRequest({
-      appId: sourceDemoConfig.appId,
-      keyId: sourceDemoConfig.keyId,
-      method: "POST",
-      url: runtimeUrl,
-      body: demoBody,
-      timestamp: new Date("2026-03-23T10:00:00.000Z").toISOString(),
-      nonce: "falcon-source-demo-nonce",
-    }),
+    Effect.runPromise(getPublicJwkEffect(SOURCE_PRIVATE_JWK)),
+    Effect.runPromise(
+      signFalconAppRequest({
+        appId: sourceDemoConfig.appId,
+        keyId: sourceDemoConfig.keyId,
+        privateJwk: SOURCE_PRIVATE_JWK,
+        method: "POST",
+        url: runtimeUrl,
+        body: demoBody,
+      }),
+    ),
+    Effect.runPromise(
+      createFalconAppAuthHeaders({
+        appId: sourceDemoConfig.appId,
+        keyId: sourceDemoConfig.keyId,
+        privateJwk: SOURCE_PRIVATE_JWK,
+        method: "POST",
+        url: runtimeUrl,
+        body: demoBody,
+      }),
+    ),
+    Effect.runPromise(
+      canonicalizeFalconAppRequest({
+        appId: sourceDemoConfig.appId,
+        keyId: sourceDemoConfig.keyId,
+        method: "POST",
+        url: runtimeUrl,
+        body: demoBody,
+        timestamp: new Date("2026-03-23T10:00:00.000Z").toISOString(),
+        nonce: "falcon-source-demo-nonce",
+      }),
+    ),
   ]);
 
   const latestIntentVerification = input.latestIntent
     ? {
-        decoded: decodeJwtUnsafe(input.latestIntent.intentToken) as Record<string, {}>,
-        verified: await verifyInstallIntentToken({
-          token: input.latestIntent.intentToken,
-          issuer: sourceDemoConfig.falconBaseUrl,
-          audience: sourceDemoConfig.targetAppId,
-          jwksUrl: `${sourceDemoConfig.falconBaseUrl}/.well-known/jwks.json`,
-        }),
+        decoded: Effect.runSync(
+          decodeJwtUnsafeEffect(input.latestIntent.intentToken),
+        ) as Record<string, {}>,
+        verified: await Effect.runPromise(
+          verifyInstallIntentTokenEffect({
+            token: input.latestIntent.intentToken,
+            issuer: sourceDemoConfig.falconBaseUrl,
+            audience: sourceDemoConfig.targetAppId,
+            jwksUrl: `${sourceDemoConfig.falconBaseUrl}/.well-known/jwks.json`,
+          }),
+        ),
       }
     : null;
 
   const latestConnectionVerification = input.latestToken
     ? {
-        decoded: decodeJwtUnsafe(input.latestToken.token) as Record<string, {}>,
-        verified: await verifyConnectionAccessToken({
-          token: input.latestToken.token,
-          issuer: sourceDemoConfig.falconBaseUrl,
-          audience: sourceDemoConfig.targetAppId,
-          jwksUrl: `${sourceDemoConfig.falconBaseUrl}/.well-known/jwks.json`,
-        }),
+        decoded: Effect.runSync(
+          decodeJwtUnsafeEffect(input.latestToken.token),
+        ) as Record<string, {}>,
+        verified: await Effect.runPromise(
+          verifyConnectionAccessTokenEffect({
+            token: input.latestToken.token,
+            issuer: sourceDemoConfig.falconBaseUrl,
+            audience: sourceDemoConfig.targetAppId,
+            jwksUrl: `${sourceDemoConfig.falconBaseUrl}/.well-known/jwks.json`,
+          }),
+        ),
       }
     : null;
 

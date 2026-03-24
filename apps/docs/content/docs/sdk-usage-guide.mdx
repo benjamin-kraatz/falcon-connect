@@ -8,7 +8,49 @@ icon: Puzzle
 
 This page is intentionally practical. It is not the conceptual overview of FALCON Connect and it is not the full protocol reference. It is the page you reach for when you want to wire the SDK into a real application and you want examples that match the current exported API.
 
-If you want the same SDK surface in runnable code, compare these snippets to `apps/demo-01` and `apps/demo-02`, which implement the current source-side and target-side flows end to end.
+## Effect-first API
+
+The SDK is **Effect-based**: protocol types use Effect `Schema`, HTTP clients return `Effect` values, and crypto helpers are `Effect` programs. Import from `@falcon/sdk/effect` or the package root (`import "@falcon/sdk"` re-exports the same symbols).
+
+See `packages/sdk/CHANGELOG.md` for breaking changes when upgrading from older releases.
+
+### Migration quick reference (from legacy Promise clients)
+
+| Old pattern | Current pattern |
+|-------------|-------------------|
+| `createFalconConnectTargetClient` | `makeFalconConnectTargetService` or `FalconConnectTargetService` + `FalconConnectTargetConfig` |
+| `createFalconConnectSourceClient` | `makeFalconConnectSourceService` or `FalconConnectSourceService` + `FalconConnectSourceConfig` |
+| Zod `*Schema` from `protocol` | Effect `Schema` exports from `@falcon/sdk/effect` |
+| `createFalconAppAuthHeaders`, … | `createFalconAppAuthHeaders`, `verifyFalconAppRequestEffect`, … in `effect/crypto` |
+| Await client methods directly | `Effect.runPromise(client.method(...))` (or another Effect runner) |
+
+### Minimal Effect wiring (illustrative)
+
+```ts
+import { Effect, Layer } from "effect";
+import {
+  type AppId,
+  type IntentToken,
+  FalconConnectTargetConfig,
+  FalconConnectTargetService,
+} from "@falcon/sdk/effect";
+
+const configLayer = Layer.succeed(FalconConnectTargetConfig, {
+  baseUrl: new URL("https://connect.falcon.example"),
+  appId: "orders" as AppId,
+  keyId: "orders-key-1",
+  privateJwk: JSON.parse(process.env.FALCON_PRIVATE_JWK!),
+});
+
+const program = Effect.gen(function* () {
+  const target = yield* FalconConnectTargetService;
+  return yield* target.resolveInstallIntent("intent-token-here" as IntentToken);
+});
+
+// run with your preferred Effect runner and provide configLayer
+```
+
+The sections below walk through the same flows using **`Effect.runPromise`** on the service factories. Compare these snippets to `apps/demo-01` and `apps/demo-02`, which implement the source-side and target-side flows end to end.
 
 The SDK is split into three parts:
 
@@ -45,49 +87,64 @@ That helper prints a private JWK for `FALCON_PRIVATE_JWK` and the public JWK you
 
 ## Basic Configuration
 
-The smallest useful setup is to create one SDK client instance on the source side or the target side and reuse it rather than re-creating it for every request.
+The smallest useful setup is to build one **service** on the source side or the target side with `makeFalconConnectSourceService` / `makeFalconConnectTargetService` (or the `Layer`-based `FalconConnect*Service` classes) and reuse it rather than re-creating it for every request.
 
 ```ts
-import { createFalconConnectSourceClient, createFalconConnectTargetClient } from "@falcon/sdk";
+import { Effect } from "effect";
+import {
+  AppId,
+  makeFalconConnectSourceService,
+  makeFalconConnectTargetService,
+} from "@falcon/sdk/effect";
 
-const falconBaseUrl = "https://connect.falcon.example";
-const appId = "orders";
+const falconBaseUrl = new URL("https://connect.falcon.example");
+const appId = AppId.make("orders");
 const keyId = "orders-key-1";
 const privateJwk = JSON.parse(process.env.FALCON_PRIVATE_JWK!);
 
-export const falconSource = createFalconConnectSourceClient({
+export const falconSource = makeFalconConnectSourceService({
   baseUrl: falconBaseUrl,
   appId,
   keyId,
   privateJwk,
 });
 
-export const falconTarget = createFalconConnectTargetClient({
+export const falconTarget = makeFalconConnectTargetService({
   baseUrl: falconBaseUrl,
   appId,
   keyId,
   privateJwk,
 });
+
+// Example: run an effect to a Promise at the edge of your app
+export async function runSource<A>(effect: Effect.Effect<A>) {
+  return Effect.runPromise(effect);
+}
 ```
 
-You would normally create **one** of these clients per app role. A source-only app usually needs only the source client. A target-only app usually needs only the target client. An app that can act in both roles may create both.
+You would normally create **one** of these service instances per app role. A source-only app usually needs only the source service. A target-only app usually needs only the target service. An app that can act in both roles may create both.
+
+Each method on the service returns an `Effect`. Use `Effect.runPromise` (or `Effect.runFork`, a custom runtime, etc.) where you need async/await or framework handlers.
 
 ## Source App: Start an Installation Flow
 
 The source app starts the relationship by creating an install intent.
 
 ```ts
+import { Effect } from "effect";
 import { falconSource } from "./falcon";
 
 export async function startConnectionFlow() {
-  const result = await falconSource.createInstallIntent({
-    targetAppId: "invoices",
-    falconSubjectId: "usr_123",
-    organizationId: "org_456",
-    requestedScopes: ["invoices:read", "invoices:search"],
-    sourceReturnUrl: "https://orders.example.com/settings/falcon/callback",
-    expiresInSeconds: 900,
-  });
+  const result = await Effect.runPromise(
+    falconSource.createInstallIntent({
+      targetAppId: "invoices",
+      falconSubjectId: "usr_123",
+      organizationId: "org_456",
+      requestedScopes: ["invoices:read", "invoices:search"],
+      sourceReturnUrl: new URL("https://orders.example.com/settings/falcon/callback"),
+      expiresInSeconds: 900,
+    }),
+  );
 
   return result.connectUrl;
 }
@@ -140,13 +197,16 @@ A typical source app persists the `connectionId` in its own integration table as
 Once the connection exists, the source app uses the stored `connectionId` to mint a short-lived FALCON token whenever it wants to call the target app.
 
 ```ts
+import { Effect } from "effect";
 import { falconSource } from "./falcon";
 
 export async function getConnectionToken(connectionId: string) {
-  const result = await falconSource.issueConnectionAccessToken({
-    connectionId,
-    expiresInSeconds: 300,
-  });
+  const result = await Effect.runPromise(
+    falconSource.issueConnectionAccessToken({
+      connectionId,
+      expiresInSeconds: 300,
+    }),
+  );
 
   return result.token;
 }
@@ -155,9 +215,13 @@ export async function getConnectionToken(connectionId: string) {
 If you also want the decoded claim set FALCON used, the SDK already returns that in `result.claims`.
 
 ```ts
-const result = await falconSource.issueConnectionAccessToken({
-  connectionId: "conn_123",
-});
+import { Effect } from "effect";
+
+const result = await Effect.runPromise(
+  falconSource.issueConnectionAccessToken({
+    connectionId: "conn_123",
+  }),
+);
 
 console.log(result.claims.targetAppId);
 console.log(result.claims.scopes);
@@ -198,28 +262,34 @@ Either party on a directional connection may change its status through the SDK. 
 Use `active` to resume a paused connection, `paused` to suspend it, or `revoked` to end it. An optional `reason` is stored for audit (for `revoked`, the server may substitute a default if omitted). For how paused and revoked differ at runtime, see [Security and Operations](../security-and-operations).
 
 ```ts
+import { Effect } from "effect";
 import { falconSource } from "./falcon";
 
 export async function pauseFromSource(connectionId: string) {
-  return falconSource.updateConnectionStatus({
-    connectionId,
-    status: "paused",
-    reason: "Paused by user in source app settings",
-  });
+  return Effect.runPromise(
+    falconSource.updateConnectionStatus({
+      connectionId,
+      status: "paused",
+      reason: "Paused by user in source app settings",
+    }),
+  );
 }
 ```
 
-The target client exposes the same method on `FalconConnectTargetClient`:
+The target service exposes the same method:
 
 ```ts
+import { Effect } from "effect";
 import { falconTarget } from "./falcon";
 
 export async function revokeFromTarget(connectionId: string) {
-  return falconTarget.updateConnectionStatus({
-    connectionId,
-    status: "revoked",
-    reason: "Integration removed in target admin",
-  });
+  return Effect.runPromise(
+    falconTarget.updateConnectionStatus({
+      connectionId,
+      status: "revoked",
+      reason: "Integration removed in target admin",
+    }),
+  );
 }
 ```
 
@@ -228,6 +298,8 @@ export async function revokeFromTarget(connectionId: string) {
 When the user lands on the target app's connect route, the first FALCON-specific step is to extract the install token from the query string and resolve it.
 
 ```ts
+import { IntentToken } from "@falcon/sdk/effect";
+import { Effect } from "effect";
 import { falconTarget } from "./falcon";
 
 export async function resolveIncomingIntent(requestUrl: string) {
@@ -238,7 +310,9 @@ export async function resolveIncomingIntent(requestUrl: string) {
     throw new Error("Missing falcon_connect_intent query parameter");
   }
 
-  const intent = await falconTarget.resolveInstallIntent(intentToken);
+  const intent = await Effect.runPromise(
+    falconTarget.resolveInstallIntent(IntentToken.make(intentToken)),
+  );
 
   return { intentToken, intent };
 }
@@ -251,7 +325,7 @@ Keep both values. The resolved intent object does **not** replace the original t
 The target app owns the consent screen, but the SDK can prepare the scope-selection model so your UI logic does not have to rebuild the required/system rules by hand.
 
 ```ts
-import { buildConsentSelection } from "@falcon/sdk";
+import { buildConsentSelection } from "@falcon/sdk/effect";
 
 export function buildConsentViewModel(
   intent: Awaited<ReturnType<typeof resolveIncomingIntent>>["intent"],
@@ -275,6 +349,8 @@ If the user approves the request, you can either use the higher-level `approveIn
 The higher-level helper is the easiest path when you only need to submit an approval:
 
 ```ts
+import { IntentToken } from "@falcon/sdk/effect";
+import { Effect } from "effect";
 import { falconTarget } from "./falcon";
 
 export async function approveConnection(input: {
@@ -282,11 +358,13 @@ export async function approveConnection(input: {
   intent: Awaited<ReturnType<typeof resolveIncomingIntent>>["intent"];
   selectedScopeNames: string[];
 }) {
-  const result = await falconTarget.approveInstallIntent({
-    intentToken: input.intentToken,
-    intent: input.intent,
-    selectedScopeNames: input.selectedScopeNames,
-  });
+  const result = await Effect.runPromise(
+    falconTarget.approveInstallIntent({
+      intentToken: IntentToken.make(input.intentToken),
+      intent: input.intent,
+      selectedScopeNames: input.selectedScopeNames,
+    }),
+  );
 
   return result.redirectUrl;
 }
@@ -299,13 +377,18 @@ The `selectedScopeNames` array should contain only the optional scopes the user 
 If the user denies the request, use `submitInstallIntentDecision` directly:
 
 ```ts
+import { Effect } from "effect";
+import { falconTarget } from "./falcon";
+
 export async function denyConnection(intentToken: string, deniedReason?: string) {
-  const result = await falconTarget.submitInstallIntentDecision({
-    intentToken,
-    approved: false,
-    grantedScopes: [],
-    deniedReason,
-  });
+  const result = await Effect.runPromise(
+    falconTarget.submitInstallIntentDecision({
+      intentToken,
+      approved: false,
+      grantedScopes: [],
+      deniedReason,
+    }),
+  );
 
   return result.redirectUrl;
 }
@@ -320,6 +403,7 @@ When your UI already knows which **source app**, **FALCON subject**, and **organ
 The request is signed as the target app. FALCON returns `null` when no row matches. When several candidates exist, the server prefers an **active** connection, then a **paused** one, then the most recently updated among the latest matches.
 
 ```ts
+import { Effect } from "effect";
 import { falconTarget } from "./falcon";
 
 export async function loadIncomingFromOrders(params: {
@@ -327,11 +411,13 @@ export async function loadIncomingFromOrders(params: {
   falconSubjectId: string;
   organizationId: string;
 }) {
-  const connection = await falconTarget.findIncomingConnection({
-    sourceAppId: params.sourceAppId,
-    falconSubjectId: params.falconSubjectId,
-    organizationId: params.organizationId,
-  });
+  const connection = await Effect.runPromise(
+    falconTarget.findIncomingConnection({
+      sourceAppId: params.sourceAppId,
+      falconSubjectId: params.falconSubjectId,
+      organizationId: params.organizationId,
+    }),
+  );
 
   if (!connection) {
     return { state: "none" as const };
@@ -346,13 +432,16 @@ export async function loadIncomingFromOrders(params: {
 At runtime, the target app usually extracts the FALCON JWT from the incoming request and verifies it through the target client.
 
 ```ts
+import { Effect } from "effect";
 import { falconTarget } from "./falcon";
 
 export async function verifyIncomingFalconToken(token: string) {
-  const verification = await falconTarget.verifyConnectionToken({
-    token,
-    allowIntrospectionFallback: true,
-  });
+  const verification = await Effect.runPromise(
+    falconTarget.verifyConnectionToken({
+      token,
+      allowIntrospectionFallback: true,
+    }),
+  );
 
   return verification;
 }
@@ -396,6 +485,9 @@ That difference is important enough that your middleware should branch on `verif
 Here is a framework-neutral example of how you might wrap the runtime verification step before serving a protected endpoint:
 
 ```ts
+import { Effect } from "effect";
+import { falconTarget } from "./falcon";
+
 export async function requireFalconConnection(request: Request) {
   const authorization = request.headers.get("authorization");
 
@@ -404,10 +496,12 @@ export async function requireFalconConnection(request: Request) {
   }
 
   const token = authorization.slice("Bearer ".length);
-  const verification = await falconTarget.verifyConnectionToken({
-    token,
-    allowIntrospectionFallback: true,
-  });
+  const verification = await Effect.runPromise(
+    falconTarget.verifyConnectionToken({
+      token,
+      allowIntrospectionFallback: true,
+    }),
+  );
 
   if (verification.mode === "local") {
     return {
@@ -444,17 +538,20 @@ Most applications should stay at the source and target client level. If you need
 For example, to sign a FALCON request manually:
 
 ```ts
-import { createFalconAppAuthHeaders } from "@falcon/sdk";
+import { createFalconAppAuthHeaders } from "@falcon/sdk/effect";
+import { Effect } from "effect";
 
 export async function buildSignedHeaders(body: unknown) {
-  return createFalconAppAuthHeaders({
-    appId: "orders",
-    keyId: "orders-key-1",
-    privateJwk: JSON.parse(process.env.FALCON_PRIVATE_JWK!),
-    method: "POST",
-    url: "https://connect.falcon.example/v1/install-intents",
-    body: JSON.stringify(body),
-  });
+  return Effect.runPromise(
+    createFalconAppAuthHeaders({
+      appId: "orders",
+      keyId: "orders-key-1",
+      privateJwk: JSON.parse(process.env.FALCON_PRIVATE_JWK!),
+      method: "POST",
+      url: "https://connect.falcon.example/v1/install-intents",
+      body: JSON.stringify(body),
+    }),
+  );
 }
 ```
 
@@ -465,7 +562,7 @@ This is useful if you want to integrate with a custom HTTP layer while still mat
 If you are rendering a custom UI and want to normalize the selected scope set yourself, the SDK also exports helpers for that:
 
 ```ts
-import { buildConsentSelection, normalizeGrantedScopes } from "@falcon/sdk";
+import { buildConsentSelection, normalizeGrantedScopes } from "@falcon/sdk/effect";
 
 const selection = buildConsentSelection(intent, userSelectedScopeNames);
 const grantedScopes = normalizeGrantedScopes(intent, userSelectedScopeNames);

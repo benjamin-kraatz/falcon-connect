@@ -8,6 +8,7 @@
     "serve": "vite preview"
   },
   "dependencies": {
+    "effect": "catalog:effect",
     "@falcon/sdk": "workspace:*",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-form": "^1.28.0",

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createFalconConnectSourceClient } from "@falcon/sdk";
+import { AppId, makeFalconConnectSourceService } from "@falcon/sdk/effect";
 import { useEffect, useState } from "react";
 
 import { PageFrame, Panel, RouteLink, StatusPill } from "@/components/ui";
@@ -11,9 +11,9 @@ export const Route = createFileRoute("/connect-flow/callback")({
   component: RouteComponent,
 });
 
-const callbackParser = createFalconConnectSourceClient({
-  baseUrl: sourceDemoConfig.falconBaseUrl,
-  appId: sourceDemoConfig.appId,
+const callbackParser = makeFalconConnectSourceService({
+  baseUrl: new URL(sourceDemoConfig.falconBaseUrl),
+  appId: AppId.make(sourceDemoConfig.appId),
   keyId: sourceDemoConfig.keyId,
   privateJwk: {
     crv: "Ed25519",

@@ -15,6 +15,7 @@
     "@falcon/db": "workspace:*",
     "@falcon/env": "workspace:*",
     "@falcon/sdk": "workspace:*",
+    "effect": "catalog:effect",
     "@orpc/client": "catalog:",
     "@orpc/openapi": "catalog:",
     "@orpc/server": "catalog:",

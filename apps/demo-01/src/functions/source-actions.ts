@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { Effect } from "effect";
 import { z } from "zod";
 
 import { sourceDemoConfig } from "@/lib/config";
@@ -28,33 +29,39 @@ const diagnosticsSchema = z.object({
 export const createInstallIntentAction = createServerFn({ method: "POST" })
   .inputValidator(workspacePayloadSchema)
   .handler(async ({ data }) => {
-    return sourceClient.createInstallIntent({
-      targetAppId: sourceDemoConfig.targetAppId,
-      falconSubjectId: data.falconSubjectId,
-      organizationId: data.organizationId,
-      requestedScopes: data.requestedScopes,
-      sourceReturnUrl: sourceDemoConfig.callbackUrl,
-      expiresInSeconds: 900,
-    });
+    return Effect.runPromise(
+      sourceClient.createInstallIntent({
+        targetAppId: sourceDemoConfig.targetAppId,
+        falconSubjectId: data.falconSubjectId,
+        organizationId: data.organizationId,
+        requestedScopes: data.requestedScopes,
+        sourceReturnUrl: new URL(sourceDemoConfig.callbackUrl),
+        expiresInSeconds: 900,
+      }),
+    );
   });
 
 export const issueConnectionTokenAction = createServerFn({ method: "POST" })
   .inputValidator(connectionSchema)
   .handler(async ({ data }) => {
-    return sourceClient.issueConnectionAccessToken({
-      connectionId: data.connectionId,
-      expiresInSeconds: 300,
-    });
+    return Effect.runPromise(
+      sourceClient.issueConnectionAccessToken({
+        connectionId: data.connectionId,
+        expiresInSeconds: 300,
+      }),
+    );
   });
 
 export const recoverConnectionAction = createServerFn({ method: "POST" })
   .inputValidator(recoverConnectionSchema)
   .handler(async ({ data }) => {
-    return sourceClient.findConnection({
-      targetAppId: sourceDemoConfig.targetAppId,
-      falconSubjectId: data.falconSubjectId,
-      organizationId: data.organizationId,
-    });
+    return Effect.runPromise(
+      sourceClient.findConnection({
+        targetAppId: sourceDemoConfig.targetAppId,
+        falconSubjectId: data.falconSubjectId,
+        organizationId: data.organizationId,
+      }),
+    );
   });
 
 export const buildSourceSdkDiagnosticsAction = createServerFn({ method: "POST" })
@@ -64,8 +71,8 @@ export const buildSourceSdkDiagnosticsAction = createServerFn({ method: "POST" }
       ? {
           intentId: "live",
           intentToken: data.latestIntentToken,
-          connectUrl: `${sourceDemoConfig.targetBaseUrl}/connect-flow`,
-          expiresAt: new Date().toISOString(),
+          connectUrl: new URL(`${sourceDemoConfig.targetBaseUrl}/connect-flow`),
+          expiresAt: new Date(),
           sourceAppId: sourceDemoConfig.appId,
           targetAppId: sourceDemoConfig.targetAppId,
           requestedScopes: [...sourceDemoConfig.defaultScopes],
@@ -75,7 +82,7 @@ export const buildSourceSdkDiagnosticsAction = createServerFn({ method: "POST" }
     const latestToken = data.latestToken
       ? {
           token: data.latestToken,
-          expiresAt: new Date().toISOString(),
+          expiresAt: new Date(),
           claims: {
             kind: "falcon-connect-connection" as const,
             connectionId: data.connectionId ?? "unknown",

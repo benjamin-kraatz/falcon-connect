@@ -1,46 +1,50 @@
 # FALCON Connect SDK
 
-This is the TypeScript SDK for integrating partner applications with FALCON Connect.
+TypeScript SDK for integrating partner applications with FALCON Connect. The API is **Effect-based** (protocol types use Effect `Schema`, HTTP operations return `Effect` values).
 
-## Surface Area
+## Import
 
-- source app helpers
-  - create install intents
-  - parse install callbacks
-  - mint runtime connection tokens
-  - update connection status (pause, resume, revoke)
-- target app helpers
-  - resolve install intents
-  - submit consent decisions
-  - look up an incoming connection by source app, subject, and organization
-  - verify Falcon connection tokens locally
-  - introspect Falcon as a fallback
-  - update connection status (pause, resume, revoke)
-- shared protocol
-  - trusted app manifests
-  - scope descriptors
-  - install intent payloads
-  - connection token claims
-  - introspection responses
+Use either entry — they export the same symbols:
 
-## Key Concepts
+```ts
+import { makeFalconConnectTargetService, FalconConnectTargetService } from "@falcon/sdk/effect";
+// or
+import { makeFalconConnectTargetService } from "@falcon/sdk";
+```
 
-- trusted apps authenticate to Falcon with request signatures backed by their private JWK
-- target apps own the user-facing login and consent route
-- Falcon issues short-lived JWTs for runtime verification
-- target apps verify locally against Falcon JWKS and introspect on fallback
+- **Factories:** `makeFalconConnectTargetService`, `makeFalconConnectSourceService` for direct use with `Effect.runPromise` / your runtime.
+- **Services:** `FalconConnectTargetService`, `FalconConnectSourceService` with `Layer` and `FalconConnectTargetConfig` / `FalconConnectSourceConfig`.
+- **Protocol:** Effect `Schema` in `effect/protocol.ts`.
+- **Crypto:** `effect/crypto.ts` — signing, JWKS verification, JWT helpers (`verifyFalconAppRequestEffect`, `signInstallIntentTokenEffect`, …).
+- **Errors:** Tagged errors in `effect/errors.ts`.
+- **UI:** `buildConsentSelection` / `normalizeGrantedScopes` in `effect/ui.ts`.
 
-## Mandatory System Scopes
+See [CHANGELOG.md](./CHANGELOG.md) for breaking changes and migration notes from older Promise/Zod-based releases.
 
-V1 starts with `read:app-info` as a non-disableable Falcon system scope. The SDK treats system and required scopes as locked during consent selection.
+## Surface area
 
-## End-to-End Demo Apps
+- **Source app:** create install intents, parse install callbacks, mint runtime connection tokens, update connection status.
+- **Target app:** resolve install intents, submit consent decisions, look up incoming connections, verify connection tokens (local JWKS + optional introspection), update connection status.
+- **Protocol:** trusted app manifests, scope descriptors, install intent payloads, connection token claims, introspection responses.
 
-The SDK is exercised end to end in this monorepo by:
+## Key concepts
 
-- `apps/demo-01` implementing **Project Hub** as the source app
-- `apps/demo-02` implementing **Incident Ops** as the target app
+- Trusted apps authenticate to Falcon with request signatures backed by their private JWK.
+- Target apps own the user-facing login and consent route.
+- Falcon issues short-lived JWTs for runtime verification.
+- Target apps verify locally against Falcon JWKS and introspect on fallback.
 
-Together they cover the high-level source and target clients, the consent helpers, and the lower-level crypto helpers used for signed app requests and JWT verification.
+## Mandatory system scopes
 
-See the [docs site](https://falcon-connect-docs.vercel.app/) for the narrative walkthrough and the demo app READMEs for the local runbook.
+The SDK includes `read:app-info` as a non-disableable Falcon system scope. System and required scopes are treated as locked during consent selection.
+
+## End-to-end demo apps
+
+Monorepo demos:
+
+- `apps/demo-01` — **Project Hub** (source app)
+- `apps/demo-02` — **Incident Ops** (target app)
+
+They exercise source/target flows, consent helpers, and crypto used for signed requests and JWT verification.
+
+See the docs site and demo READMEs for the local runbook.

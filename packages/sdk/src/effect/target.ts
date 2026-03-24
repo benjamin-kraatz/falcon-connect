@@ -88,6 +88,173 @@ function toSignedConfig(options: FalconConnectTargetClientOptions): FalconConnec
 }
 
 /**
+ * Builds the target Connect API (`FalconConnectTargetServiceDef`) from options.
+ * Use with `Effect.runPromise` / `Effect.runSync` on individual methods, or prefer
+ * {@link FalconConnectTargetService} with a {@link FalconConnectTargetConfig} layer.
+ */
+export function makeFalconConnectTargetService(
+  config: FalconConnectTargetClientOptions,
+): FalconConnectTargetServiceDef {
+  const signed = toSignedConfig(config);
+
+  return {
+    resolveInstallIntent: (intentToken: IntentToken) =>
+      Effect.gen(function* () {
+        const body = yield* Schema.decodeUnknown(ResolveInstallIntentInput)({
+          intentToken,
+        }).pipe(Effect.mapError((cause) => new InvalidIntentTokenError({ cause })));
+        return yield* signedJsonRequest(
+          signed,
+          "resolveInstallIntent",
+          body,
+          ResolvedInstallIntent,
+          FALCON_CONNECT_API_ENDPOINTS.resolveInstallIntent,
+        );
+      }),
+
+    approveInstallIntent: (input) =>
+      Effect.gen(function* () {
+        const body = yield* Schema.decodeUnknown(DecideInstallIntentInput)({
+          approved: true,
+          intentToken: String(input.intentToken),
+          grantedScopes: normalizeGrantedScopes(input.intent, input.selectedScopeNames),
+        }).pipe(
+          Effect.mapError(
+            (cause) =>
+              new FalconConnectSignedRequestError({
+                operation: "approveInstallIntent",
+                cause,
+              }),
+          ),
+        );
+        return yield* signedJsonRequest(
+          signed,
+          "approveInstallIntent",
+          body,
+          DecideInstallIntentResult,
+          FALCON_CONNECT_API_ENDPOINTS.installIntentDecision,
+        );
+      }),
+
+    submitInstallIntentDecision: (input) =>
+      Effect.gen(function* () {
+        const body = yield* Schema.decodeUnknown(DecideInstallIntentInput)(input).pipe(
+          Effect.mapError(
+            (cause) =>
+              new FalconConnectSignedRequestError({
+                operation: "submitInstallIntentDecision",
+                cause,
+              }),
+          ),
+        );
+        return yield* signedJsonRequest(
+          signed,
+          "submitInstallIntentDecision",
+          body,
+          DecideInstallIntentResult,
+          FALCON_CONNECT_API_ENDPOINTS.installIntentDecision,
+        );
+      }),
+
+    introspectConnection: (input) =>
+      Effect.gen(function* () {
+        const body = yield* Schema.decodeUnknown(IntrospectConnectionInput)(input).pipe(
+          Effect.mapError(
+            (cause) =>
+              new FalconConnectSignedRequestError({
+                operation: "introspectConnection",
+                cause,
+              }),
+          ),
+        );
+        return yield* signedJsonRequest(
+          signed,
+          "introspectConnection",
+          body,
+          IntrospectionResult,
+          FALCON_CONNECT_API_ENDPOINTS.introspectConnection,
+        );
+      }),
+
+    findIncomingConnection: (input) =>
+      Effect.gen(function* () {
+        const body = yield* Schema.decodeUnknown(FindIncomingConnectionInput)(input).pipe(
+          Effect.mapError(
+            (cause) =>
+              new FalconConnectSignedRequestError({
+                operation: "findIncomingConnection",
+                cause,
+              }),
+          ),
+        );
+        return yield* signedJsonRequestNullableConnection(
+          signed,
+          "findIncomingConnection",
+          body,
+          FALCON_CONNECT_API_ENDPOINTS.incomingConnection,
+        );
+      }),
+
+    updateConnectionStatus: (input) =>
+      Effect.gen(function* () {
+        const body = yield* Schema.decodeUnknown(UpdateConnectionStatusInput)(input).pipe(
+          Effect.mapError(
+            (cause) =>
+              new FalconConnectSignedRequestError({
+                operation: "updateConnectionStatus",
+                cause,
+              }),
+          ),
+        );
+        return yield* signedJsonRequest(
+          signed,
+          "updateConnectionStatus",
+          body,
+          ConnectionRecord,
+          FALCON_CONNECT_API_ENDPOINTS.connectionStatus,
+        );
+      }),
+
+    verifyConnectionToken: (input) =>
+      Effect.gen(function* () {
+        const baseUrlStr =
+          typeof config.baseUrl === "string" ? config.baseUrl : config.baseUrl.toString();
+        const jwksUrl = new URL("/.well-known/jwks.json", baseUrlStr).toString();
+        const attempt = yield* Effect.either(
+          verifyConnectionAccessTokenEffect({
+            token: input.token,
+            issuer: baseUrlStr,
+            audience: String(config.appId),
+            jwksUrl,
+          }).pipe(Effect.map((result) => ({ mode: "local" as const, result }))),
+        );
+        if (Either.isRight(attempt)) {
+          return attempt.right;
+        }
+        if (!input.allowIntrospectionFallback) {
+          return yield* new VerifyConnectionTokenError({ cause: attempt.left });
+        }
+        const decoded = yield* decodeJwtUnsafeEffect(input.token).pipe(
+          Effect.mapError((e) => new VerifyConnectionTokenError({ cause: e })),
+        );
+        const connectionId =
+          typeof decoded.connectionId === "string" ? decoded.connectionId : undefined;
+        const result = yield* signedJsonRequest(
+          signed,
+          "introspectConnection",
+          {
+            connectionId,
+            connectionToken: input.token,
+          },
+          IntrospectionResult,
+          FALCON_CONNECT_API_ENDPOINTS.introspectConnection,
+        ).pipe(Effect.mapError((e) => new VerifyConnectionTokenError({ cause: e })));
+        return { mode: "introspection" as const, result };
+      }),
+  };
+}
+
+/**
  * Shape of the Falcon Connect **target** API exposed as Effect programs.
  *
  * Covers the trusted-app HTTP surface: install intent resolution and decisions, connection
@@ -218,165 +385,7 @@ export class FalconConnectTargetService extends Effect.Service<FalconConnectTarg
   {
     effect: Effect.gen(function* () {
       const config = yield* FalconConnectTargetConfig;
-      const signed = toSignedConfig(config);
-
-      const schema: FalconConnectTargetServiceDef = {
-        resolveInstallIntent: (intentToken: IntentToken) =>
-          Effect.gen(function* () {
-            const body = yield* Schema.decodeUnknown(ResolveInstallIntentInput)({
-              intentToken,
-            }).pipe(Effect.mapError((cause) => new InvalidIntentTokenError({ cause })));
-            return yield* signedJsonRequest(
-              signed,
-              "resolveInstallIntent",
-              body,
-              ResolvedInstallIntent,
-              FALCON_CONNECT_API_ENDPOINTS.resolveInstallIntent,
-            );
-          }),
-
-        approveInstallIntent: (input) =>
-          Effect.gen(function* () {
-            const body = yield* Schema.decodeUnknown(DecideInstallIntentInput)({
-              approved: true,
-              intentToken: String(input.intentToken),
-              grantedScopes: normalizeGrantedScopes(input.intent, input.selectedScopeNames),
-            }).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new FalconConnectSignedRequestError({
-                    operation: "approveInstallIntent",
-                    cause,
-                  }),
-              ),
-            );
-            return yield* signedJsonRequest(
-              signed,
-              "approveInstallIntent",
-              body,
-              DecideInstallIntentResult,
-              FALCON_CONNECT_API_ENDPOINTS.installIntentDecision,
-            );
-          }),
-
-        submitInstallIntentDecision: (input) =>
-          Effect.gen(function* () {
-            const body = yield* Schema.decodeUnknown(DecideInstallIntentInput)(input).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new FalconConnectSignedRequestError({
-                    operation: "submitInstallIntentDecision",
-                    cause,
-                  }),
-              ),
-            );
-            return yield* signedJsonRequest(
-              signed,
-              "submitInstallIntentDecision",
-              body,
-              DecideInstallIntentResult,
-              FALCON_CONNECT_API_ENDPOINTS.installIntentDecision,
-            );
-          }),
-
-        introspectConnection: (input) =>
-          Effect.gen(function* () {
-            const body = yield* Schema.decodeUnknown(IntrospectConnectionInput)(input).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new FalconConnectSignedRequestError({
-                    operation: "introspectConnection",
-                    cause,
-                  }),
-              ),
-            );
-            return yield* signedJsonRequest(
-              signed,
-              "introspectConnection",
-              body,
-              IntrospectionResult,
-              FALCON_CONNECT_API_ENDPOINTS.introspectConnection,
-            );
-          }),
-
-        findIncomingConnection: (input) =>
-          Effect.gen(function* () {
-            const body = yield* Schema.decodeUnknown(FindIncomingConnectionInput)(input).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new FalconConnectSignedRequestError({
-                    operation: "findIncomingConnection",
-                    cause,
-                  }),
-              ),
-            );
-            return yield* signedJsonRequestNullableConnection(
-              signed,
-              "findIncomingConnection",
-              body,
-              FALCON_CONNECT_API_ENDPOINTS.incomingConnection,
-            );
-          }),
-
-        updateConnectionStatus: (input) =>
-          Effect.gen(function* () {
-            const body = yield* Schema.decodeUnknown(UpdateConnectionStatusInput)(input).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new FalconConnectSignedRequestError({
-                    operation: "updateConnectionStatus",
-                    cause,
-                  }),
-              ),
-            );
-            return yield* signedJsonRequest(
-              signed,
-              "updateConnectionStatus",
-              body,
-              ConnectionRecord,
-              FALCON_CONNECT_API_ENDPOINTS.connectionStatus,
-            );
-          }),
-
-        verifyConnectionToken: (input) =>
-          Effect.gen(function* () {
-            const baseUrlStr =
-              typeof config.baseUrl === "string" ? config.baseUrl : config.baseUrl.toString();
-            const jwksUrl = new URL("/.well-known/jwks.json", baseUrlStr).toString();
-            const attempt = yield* Effect.either(
-              verifyConnectionAccessTokenEffect({
-                token: input.token,
-                issuer: baseUrlStr,
-                audience: String(config.appId),
-                jwksUrl,
-              }).pipe(Effect.map((result) => ({ mode: "local" as const, result }))),
-            );
-            if (Either.isRight(attempt)) {
-              return attempt.right;
-            }
-            if (!input.allowIntrospectionFallback) {
-              return yield* new VerifyConnectionTokenError({ cause: attempt.left });
-            }
-            const decoded = yield* decodeJwtUnsafeEffect(input.token).pipe(
-              Effect.mapError((e) => new VerifyConnectionTokenError({ cause: e })),
-            );
-            const connectionId =
-              typeof decoded.connectionId === "string" ? decoded.connectionId : undefined;
-            const result = yield* signedJsonRequest(
-              signed,
-              "introspectConnection",
-              {
-                connectionId,
-                connectionToken: input.token,
-              },
-              IntrospectionResult,
-              FALCON_CONNECT_API_ENDPOINTS.introspectConnection,
-            ).pipe(Effect.mapError((e) => new VerifyConnectionTokenError({ cause: e })));
-            return { mode: "introspection" as const, result };
-          }),
-      };
-
-      return schema;
+      return makeFalconConnectTargetService(config);
     }),
   },
 ) {}
