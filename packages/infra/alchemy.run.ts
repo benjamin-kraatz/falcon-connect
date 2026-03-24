@@ -37,7 +37,7 @@ export const server = await Worker("server", {
     FALCON_CONNECT_SIGNING_KEY_ID: alchemy.env.FALCON_CONNECT_SIGNING_KEY_ID!,
   },
   dev: {
-    port: 3000,
+    port: 3500,
   },
 });
 

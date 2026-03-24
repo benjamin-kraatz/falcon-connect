@@ -95,7 +95,7 @@ bun run dev:demo-02
 
 > This will start the demo apps at [http://localhost:**4101**](http://localhost:4101) for the source app and [http://localhost:**4102**](http://localhost:4102) for the target app respectively.
 
-The local Falcon server runs at [http://localhost:3000](http://localhost:3000) and automatically bootstraps the demo trusted apps, keys, callback URL, and target scopes.
+The local Falcon server runs at [http://localhost:3500](http://localhost:3500) and automatically bootstraps the demo trusted apps, keys, callback URL, and target scopes.
 
 For manual partner or Falcon key generation, use:
 
@@ -147,7 +147,7 @@ bun run db:push
 bun run dev
 ```
 
-The internal dashboard runs on [http://localhost:3001](http://localhost:3001) and the server runs on [http://localhost:3000](http://localhost:3000).
+The internal dashboard runs on [http://localhost:3501](http://localhost:3501) and the server runs on [http://localhost:3500](http://localhost:3500).
 
 ## Deployment (Cloudflare via Alchemy)
 

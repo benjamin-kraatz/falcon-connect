@@ -3,7 +3,7 @@ export const sourceDemoConfig = {
   appRole: "Source App",
   appId: "project-hub-demo",
   keyId: "project-hub-demo-key-1",
-  falconBaseUrl: "http://localhost:3000",
+  falconBaseUrl: "http://localhost:3500",
   sourceBaseUrl: "http://localhost:4101",
   targetBaseUrl: "http://localhost:4102",
   targetAppId: "incident-ops-demo",
