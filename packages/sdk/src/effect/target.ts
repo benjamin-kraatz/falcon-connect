@@ -11,8 +11,12 @@ import {
   SignedJsonRequestError,
   SignedRequestHeaderCreationError,
 } from "./errors";
-import { ResolvedInstallIntent, ResolveInstallIntentInput } from "./protocol";
-import { AppId, FalconRequestUrl } from "./types";
+import {
+  DecideInstallIntentResult,
+  ResolvedInstallIntent,
+  ResolveInstallIntentInput,
+} from "./protocol";
+import { AppId, FalconRequestUrl, IntentToken } from "./types";
 
 const globalFetchFallback = () => globalThis.fetch as typeof fetch;
 
@@ -201,12 +205,12 @@ export interface FalconConnectTargetServiceDef {
    * `Effect.die` until validation errors are modeled explicitly.
    */
   resolveInstallIntent: (
-    intentToken: string,
+    intentToken: IntentToken,
   ) => Effect.Effect<ResolvedInstallIntent, ResolveInstallIntentRequestError>;
   // approveInstallIntent: (input: {
   //   intent: ResolvedInstallIntent;
-  //   intentToken: string;
-  //   selectedScopeNames?: string[];
+  //   intentToken: IntentToken;
+  //   selectedScopeNames?: ReadonlyArray<string>;
   // }) => Effect.Effect<DecideInstallIntentResult>;
   // submitInstallIntentDecision: (
   //   input: DecideInstallIntentInput,
@@ -247,7 +251,7 @@ export class FalconConnectTargetService extends Effect.Service<FalconConnectTarg
     effect: Effect.gen(function* () {
       const config = yield* FalconConnectTargetConfig;
       const schema: FalconConnectTargetServiceDef = {
-        resolveInstallIntent: (intentToken: string) => {
+        resolveInstallIntent: (intentToken: IntentToken) => {
           return Effect.gen(function* () {
             const intentSchemaOpt = Schema.decodeOption(ResolveInstallIntentInput)({
               intentToken,

@@ -11,6 +11,12 @@ export const AppId = Schema.String.pipe(
 export type AppId = typeof AppId.Type;
 
 /**
+ * Intent token for a FALCON Connect install intent.
+ */
+export const IntentToken = Schema.String.pipe(Schema.brand("IntentToken"));
+export type IntentToken = typeof IntentToken.Type;
+
+/**
  * A valid Falcon request URL.
  */
 export const FalconRequestUrl = Schema.URL.pipe(Schema.brand("FalconRequestUrl"));
