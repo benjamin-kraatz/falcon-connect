@@ -1,18 +1,16 @@
-import { Effect, Schema } from "effect";
-import type {
-  DecideInstallIntentInput,
-  IntrospectConnectionInput,
-  ResolvedInstallIntent,
-} from "../protocol";
+import { Context, Effect, Option, Schema } from "effect";
+import type { DecideInstallIntentInput, IntrospectConnectionInput } from "../protocol";
 import { createFalconAppAuthHeaders } from "./crypto";
 import {
   ErrorResponseJsonExtractionError,
   ErrorResponseTextExtractionError,
   HttpResponseError,
   OutputParseError,
+  ResolveInstallIntentRequestError,
   SignedJsonRequestError,
   SignedRequestHeaderCreationError,
 } from "./errors";
+import { ResolvedInstallIntent, ResolveInstallIntentInput } from "./protocol";
 import { AppId, FalconRequestUrl } from "./types";
 
 const globalFetchFallback = () => globalThis.fetch as typeof fetch;
@@ -68,15 +66,15 @@ export type FalconConnectTargetClientOptions = Omit<
 type SignedJsonRequestBody =
   | DecideInstallIntentInput
   | IntrospectConnectionInput
-  | ResolvedInstallIntent;
+  | ResolveInstallIntentInput;
 
 const signedJsonRequest = Effect.fn("signedJsonRequest")(function* <
   TInput extends SignedJsonRequestBody,
-  TOutput extends { parse: (value: unknown) => unknown },
+  TOutput,
 >(
   config: FalconConnectTargetClientOptions,
   input: TInput,
-  outputSchema: { parse: (value: unknown) => TOutput },
+  outputSchema: Schema.Schema<TOutput, any, never>,
   route: string,
 ) {
   const requestUrl = new URL(route, config.baseUrl);
@@ -132,8 +130,62 @@ const signedJsonRequest = Effect.fn("signedJsonRequest")(function* <
     catch: (cause) => new ErrorResponseJsonExtractionError({ cause }),
   });
 
-  return yield* Effect.try({
-    try: () => outputSchema.parse(json),
-    catch: (cause) => new OutputParseError({ cause }),
-  });
+  return yield* Schema.decodeUnknown(outputSchema)(json).pipe(
+    Effect.mapError((cause) => new OutputParseError({ cause })),
+  );
 });
+
+export interface FalconConnectTargetServiceDef {
+  resolveInstallIntent: (
+    intentToken: string,
+  ) => Effect.Effect<ResolvedInstallIntent, ResolveInstallIntentRequestError>;
+  // approveInstallIntent: (input: {
+  //   intent: ResolvedInstallIntent;
+  //   intentToken: string;
+  //   selectedScopeNames?: string[];
+  // }) => Effect.Effect<DecideInstallIntentResult>;
+  // submitInstallIntentDecision: (
+  //   input: DecideInstallIntentInput,
+  // ) => Effect.Effect<DecideInstallIntentResult>;
+  // introspectConnection: (input: IntrospectConnectionInput) => Effect.Effect<IntrospectionResult>;
+  // verifyConnectionToken: (input: {
+  //   token: string;
+  //   allowIntrospectionFallback?: boolean;
+  // }) => Effect.Effect<void>;
+}
+
+export class FalconConnectTargetConfig extends Context.Tag(
+  "@falcon/sdk/target/FalconConnectTargetConfig",
+)<FalconConnectTargetConfig, FalconConnectTargetClientOptions>() {}
+
+export class FalconConnectTargetService extends Effect.Service<FalconConnectTargetService>()(
+  "@falcon/sdk/target/FalconConnectTargetService",
+  {
+    effect: Effect.gen(function* () {
+      const config = yield* FalconConnectTargetConfig;
+      const schema: FalconConnectTargetServiceDef = {
+        resolveInstallIntent: (intentToken: string) => {
+          return Effect.gen(function* () {
+            const intentSchemaOpt = Schema.decodeOption(ResolveInstallIntentInput)({
+              intentToken,
+            });
+            if (Option.isNone(intentSchemaOpt)) {
+              return yield* Effect.die(new Error("This error will be replaced"));
+            }
+
+            const intentSchema = intentSchemaOpt.value;
+
+            return yield* signedJsonRequest<ResolveInstallIntentInput, ResolvedInstallIntent>(
+              config,
+              intentSchema,
+              ResolvedInstallIntent,
+              "/v1/install-intents/resolve",
+            ).pipe(Effect.mapError((cause) => new ResolveInstallIntentRequestError({ cause })));
+          });
+        },
+      };
+
+      return schema;
+    }),
+  },
+) {}

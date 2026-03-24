@@ -1,4 +1,5 @@
 import { Data } from "effect";
+import type { ParseError } from "effect/ParseResult";
 import type { AppId, FalconRequestUrl } from "./types";
 
 /** Non-2xx response from the Connect HTTP API (body is the response text). */
@@ -74,4 +75,17 @@ export class ErrorResponseJsonExtractionError extends Data.TaggedError(
   "ErrorResponseJsonExtractionError",
 )<{
   cause: unknown;
+}> {}
+
+export class ResolveInstallIntentRequestError extends Data.TaggedError(
+  "ResolveInstallIntentRequestError",
+)<{
+  cause:
+    | HttpResponseError
+    | OutputParseError
+    | SignedRequestHeaderCreationError
+    | SignedJsonRequestError
+    | ErrorResponseTextExtractionError
+    | ErrorResponseJsonExtractionError
+    | ParseError;
 }> {}
