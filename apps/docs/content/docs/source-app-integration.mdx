@@ -79,3 +79,5 @@ In practice, most partner integrations will carry the FALCON JWT in an authoriza
 ## Practical Advice for Source Apps
 
 Keep runtime tokens short-lived and mint them on demand. They are verification artifacts, not long-lived installation secrets. If a target app starts rejecting a token because it is expired or the connection state changed, treat that as an expected runtime condition and recover by asking FALCON for a fresh token or by surfacing that the connection is no longer active.
+
+If your product should pause, resume, or revoke the connection from the source side (not only through the operator dashboard), use the partner status API (`POST /v1/connections/status`). The same endpoint is available to the target app when that side is responsible for the change. See the [SDK Usage Guide](../sdk-usage-guide#source-and-target-update-connection-status).

@@ -112,3 +112,9 @@ The source app includes the FALCON-issued JWT in its direct request to the targe
 The target app verifies the token locally against FALCON's JWKS endpoint. If local verification is not sufficient, the target app calls FALCON introspection to confirm the authoritative state of the connection.
 
 That split between local verification and introspection is the core of FALCON Connect's runtime model. It keeps normal traffic cheap while letting FALCON remain authoritative for pause, revoke, and reconnect state changes.
+
+## Managing Connection State from Partner Apps
+
+After a connection exists, either party may change its status through the partner API when your product needs to pause, resume, or revoke outside the operator dashboard (`POST /v1/connections/status`). The authenticated app must be the connection’s source or target.
+
+The target app can also retrieve the current connection record without a `connectionId` when it already knows the source app id, `falconSubjectId`, and `organizationId` (`POST /v1/connections/incoming`). For SDK usage, see the [SDK Usage Guide](../sdk-usage-guide).

@@ -71,6 +71,12 @@ One subtle but important detail is that FALCON Connect keeps one directional con
 
 From the target app's point of view, this means an approval may behave like "create if missing, update if present." That is intentional. It allows users to revisit an integration, change optional scopes, or restore a paused relationship without creating ambiguous connection state.
 
+## Looking Up a Connection by Identity
+
+Some target-side flows only know the **source app id**, **FALCON subject**, and **organization**—for example a settings page keyed by workspace—not the FALCON `connectionId`. In that case you can call `POST /v1/connections/incoming` (or `findIncomingConnection` on the target client) to retrieve the best-matching connection **to your app as the target**. FALCON returns no record when nothing matches. When several historical rows exist, it prefers an active connection, then a paused one, then the most recently updated candidate.
+
+See the [SDK Usage Guide](../sdk-usage-guide#target-app-find-an-incoming-connection) for a concrete TypeScript example.
+
 ## Runtime Responsibilities
 
 Once a connection exists, the target app's ongoing responsibility is no longer about consent. It is about verification. Whenever the source app calls you directly, your application needs to verify the FALCON JWT locally and, when appropriate, fall back to FALCON introspection.

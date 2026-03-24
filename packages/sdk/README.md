@@ -8,11 +8,14 @@ This is the TypeScript SDK for integrating partner applications with FALCON Conn
   - create install intents
   - parse install callbacks
   - mint runtime connection tokens
+  - update connection status (pause, resume, revoke)
 - target app helpers
   - resolve install intents
   - submit consent decisions
+  - look up an incoming connection by source app, subject, and organization
   - verify Falcon connection tokens locally
   - introspect Falcon as a fallback
+  - update connection status (pause, resume, revoke)
 - shared protocol
   - trusted app manifests
   - scope descriptors

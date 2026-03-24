@@ -12,8 +12,8 @@ If you want the same SDK surface in runnable code, compare these snippets to `ap
 
 The SDK is split into three parts:
 
-- a source-app client for initiating connections and minting runtime tokens
-- a target-app client for resolving install intents, submitting consent decisions, and verifying runtime tokens
+- a source-app client for initiating connections, minting runtime tokens, and updating connection status when your product needs to pause, resume, or revoke from the source side
+- a target-app client for resolving install intents, submitting consent decisions, looking up an existing incoming connection by identity keys, verifying runtime tokens, and updating connection status from the target side
 - lower-level crypto and UI helpers for custom integrations
 
 All examples below are written as plain TypeScript so they are easy to adapt to whatever HTTP framework you are using.
@@ -191,6 +191,38 @@ export async function fetchInvoices(connectionId: string) {
 }
 ```
 
+## Source and Target: Update Connection Status
+
+Either party on a directional connection may change its status through the SDK. The authenticated app must be the connection’s **source** or **target**; FALCON rejects callers that are not parties to the connection.
+
+Use `active` to resume a paused connection, `paused` to suspend it, or `revoked` to end it. An optional `reason` is stored for audit (for `revoked`, the server may substitute a default if omitted). For how paused and revoked differ at runtime, see [Security and Operations](../security-and-operations).
+
+```ts
+import { falconSource } from "./falcon";
+
+export async function pauseFromSource(connectionId: string) {
+  return falconSource.updateConnectionStatus({
+    connectionId,
+    status: "paused",
+    reason: "Paused by user in source app settings",
+  });
+}
+```
+
+The target client exposes the same method on `FalconConnectTargetClient`:
+
+```ts
+import { falconTarget } from "./falcon";
+
+export async function revokeFromTarget(connectionId: string) {
+  return falconTarget.updateConnectionStatus({
+    connectionId,
+    status: "revoked",
+    reason: "Integration removed in target admin",
+  });
+}
+```
+
 ## Target App: Resolve the Install Intent
 
 When the user lands on the target app's connect route, the first FALCON-specific step is to extract the install token from the query string and resolve it.
@@ -280,6 +312,34 @@ export async function denyConnection(intentToken: string, deniedReason?: string)
 ```
 
 The returned `redirectUrl` is what you should use to send the user back to the source app once the decision is complete.
+
+## Target App: Find an Incoming Connection
+
+When your UI already knows which **source app**, **FALCON subject**, and **organization** the user is acting in—but you do not have a `connectionId` handy—you can ask FALCON for the best-matching connection **to your app as the target**. Typical uses include settings or dashboards that list “connections from App X for this workspace.”
+
+The request is signed as the target app. FALCON returns `null` when no row matches. When several candidates exist, the server prefers an **active** connection, then a **paused** one, then the most recently updated among the latest matches.
+
+```ts
+import { falconTarget } from "./falcon";
+
+export async function loadIncomingFromOrders(params: {
+  sourceAppId: string;
+  falconSubjectId: string;
+  organizationId: string;
+}) {
+  const connection = await falconTarget.findIncomingConnection({
+    sourceAppId: params.sourceAppId,
+    falconSubjectId: params.falconSubjectId,
+    organizationId: params.organizationId,
+  });
+
+  if (!connection) {
+    return { state: "none" as const };
+  }
+
+  return { state: "found" as const, connection };
+}
+```
 
 ## Target App: Verify a Runtime Token
 
@@ -424,4 +484,9 @@ If you want the shortest end-to-end summary of how the SDK pieces fit together, 
 5. Source app later mints a runtime token with that `connectionId`.
 6. Target app verifies the token locally and introspects on fallback.
 
-That is the full SDK story in six steps. Everything else in this guide is detail around those steps.
+Optional lifecycle steps you may need in production:
+
+7. Target app looks up a connection with `findIncomingConnection` when identity context is known but `connectionId` is not.
+8. Source or target app updates status with `updateConnectionStatus` when the product should pause, resume, or revoke outside the operator dashboard.
+
+The first six steps are the minimal install-and-runtime path. Steps 7 and 8 are the usual extensions when you manage connection state from partner apps. Everything else in this guide is detail around those steps.
