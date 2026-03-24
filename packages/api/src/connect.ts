@@ -798,7 +798,7 @@ export async function createInstallIntent(
     sourceAllowedRedirects.has(input.sourceReturnUrl),
     400,
     "RETURN_URL_NOT_ALLOWED",
-    "The source return URL is not registered for this trusted app",
+    `The source return URL is not registered for this trusted app (${auth.app.id}): ${input.sourceReturnUrl}`,
   );
 
   const targetRow = await getTrustedAppRow(input.targetAppId);
