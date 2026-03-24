@@ -17,6 +17,7 @@
     "@tanstack/react-start": "^1.141.1",
     "@tanstack/router-plugin": "^1.141.1",
     "dotenv": "catalog:",
+    "effect": "catalog:effect",
     "lucide-react": "catalog:",
     "next-themes": "catalog:",
     "react": "catalog:",

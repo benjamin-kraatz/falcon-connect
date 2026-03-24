@@ -79,6 +79,115 @@ function toSignedConfig(options: FalconConnectSourceClientOptions): FalconConnec
 }
 
 /**
+ * Builds the source Connect API (`FalconConnectSourceServiceDef`) from options.
+ * Use with `Effect.runPromise` on individual methods, or prefer
+ * {@link FalconConnectSourceService} with a {@link FalconConnectSourceConfig} layer.
+ */
+export function makeFalconConnectSourceService(
+  config: FalconConnectSourceClientOptions,
+): FalconConnectSourceServiceDef {
+  const signed = toSignedConfig(config);
+
+  return {
+    createInstallIntent: (input) =>
+      Effect.gen(function* () {
+        const body = yield* Schema.decodeUnknown(CreateInstallIntentInput)(input).pipe(
+          Effect.mapError(
+            (cause) =>
+              new FalconConnectSignedRequestError({
+                operation: "createInstallIntent",
+                cause,
+              }),
+          ),
+        );
+        return yield* signedJsonRequest(
+          signed,
+          "createInstallIntent",
+          body,
+          CreateInstallIntentResult,
+          FALCON_CONNECT_API_ENDPOINTS.createInstallIntent,
+        );
+      }),
+
+    issueConnectionAccessToken: (input) =>
+      Effect.gen(function* () {
+        const body = yield* Schema.decodeUnknown(IssueConnectionTokenInput)(input).pipe(
+          Effect.mapError(
+            (cause) =>
+              new FalconConnectSignedRequestError({
+                operation: "issueConnectionAccessToken",
+                cause,
+              }),
+          ),
+        );
+        return yield* signedJsonRequest(
+          signed,
+          "issueConnectionAccessToken",
+          body,
+          IssueConnectionTokenResult,
+          FALCON_CONNECT_API_ENDPOINTS.connectionAccessToken,
+        );
+      }),
+
+    findConnection: (input) =>
+      Effect.gen(function* () {
+        const body = yield* Schema.decodeUnknown(FindConnectionInput)(input).pipe(
+          Effect.mapError(
+            (cause) =>
+              new FalconConnectSignedRequestError({
+                operation: "findConnection",
+                cause,
+              }),
+          ),
+        );
+        return yield* signedJsonRequestNullableConnection(
+          signed,
+          "findConnection",
+          body,
+          FALCON_CONNECT_API_ENDPOINTS.findConnection,
+        );
+      }),
+
+    updateConnectionStatus: (input) =>
+      Effect.gen(function* () {
+        const body = yield* Schema.decodeUnknown(UpdateConnectionStatusInput)(input).pipe(
+          Effect.mapError(
+            (cause) =>
+              new FalconConnectSignedRequestError({
+                operation: "updateConnectionStatus",
+                cause,
+              }),
+          ),
+        );
+        return yield* signedJsonRequest(
+          signed,
+          "updateConnectionStatus",
+          body,
+          ConnectionRecord,
+          FALCON_CONNECT_API_ENDPOINTS.connectionStatus,
+        );
+      }),
+
+    parseInstallCallback,
+  };
+}
+
+/**
+ * Parses Falcon Connect query parameters from an install callback URL (redirect return).
+ * Pure function — also exposed on {@link FalconConnectSourceService}.
+ */
+export function parseInstallCallback(url: string | URL) {
+  const callbackUrl = url instanceof URL ? url : new URL(url);
+
+  return {
+    status: callbackUrl.searchParams.get("falcon_connect_status"),
+    connectionId: callbackUrl.searchParams.get("falcon_connect_connection_id"),
+    intentId: callbackUrl.searchParams.get("falcon_connect_intent_id"),
+    reason: callbackUrl.searchParams.get("falcon_connect_reason"),
+  };
+}
+
+/**
  * Shape of the Falcon Connect **source** API exposed as Effect programs.
  *
  * Covers creating install intents, issuing connection access tokens, finding connections, updating
@@ -165,101 +274,7 @@ export class FalconConnectSourceService extends Effect.Service<FalconConnectSour
   {
     effect: Effect.gen(function* () {
       const config = yield* FalconConnectSourceConfig;
-      const signed = toSignedConfig(config);
-
-      const schema: FalconConnectSourceServiceDef = {
-        createInstallIntent: (input) =>
-          Effect.gen(function* () {
-            const body = yield* Schema.decodeUnknown(CreateInstallIntentInput)(input).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new FalconConnectSignedRequestError({
-                    operation: "createInstallIntent",
-                    cause,
-                  }),
-              ),
-            );
-            return yield* signedJsonRequest(
-              signed,
-              "createInstallIntent",
-              body,
-              CreateInstallIntentResult,
-              FALCON_CONNECT_API_ENDPOINTS.createInstallIntent,
-            );
-          }),
-
-        issueConnectionAccessToken: (input) =>
-          Effect.gen(function* () {
-            const body = yield* Schema.decodeUnknown(IssueConnectionTokenInput)(input).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new FalconConnectSignedRequestError({
-                    operation: "issueConnectionAccessToken",
-                    cause,
-                  }),
-              ),
-            );
-            return yield* signedJsonRequest(
-              signed,
-              "issueConnectionAccessToken",
-              body,
-              IssueConnectionTokenResult,
-              FALCON_CONNECT_API_ENDPOINTS.connectionAccessToken,
-            );
-          }),
-
-        findConnection: (input) =>
-          Effect.gen(function* () {
-            const body = yield* Schema.decodeUnknown(FindConnectionInput)(input).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new FalconConnectSignedRequestError({
-                    operation: "findConnection",
-                    cause,
-                  }),
-              ),
-            );
-            return yield* signedJsonRequestNullableConnection(
-              signed,
-              "findConnection",
-              body,
-              FALCON_CONNECT_API_ENDPOINTS.findConnection,
-            );
-          }),
-
-        updateConnectionStatus: (input) =>
-          Effect.gen(function* () {
-            const body = yield* Schema.decodeUnknown(UpdateConnectionStatusInput)(input).pipe(
-              Effect.mapError(
-                (cause) =>
-                  new FalconConnectSignedRequestError({
-                    operation: "updateConnectionStatus",
-                    cause,
-                  }),
-              ),
-            );
-            return yield* signedJsonRequest(
-              signed,
-              "updateConnectionStatus",
-              body,
-              ConnectionRecord,
-              FALCON_CONNECT_API_ENDPOINTS.connectionStatus,
-            );
-          }),
-
-        parseInstallCallback: (url) => {
-          const callbackUrl = url instanceof URL ? url : new URL(url);
-
-          return {
-            status: callbackUrl.searchParams.get("falcon_connect_status"),
-            connectionId: callbackUrl.searchParams.get("falcon_connect_connection_id"),
-            intentId: callbackUrl.searchParams.get("falcon_connect_intent_id"),
-            reason: callbackUrl.searchParams.get("falcon_connect_reason"),
-          };
-        },
-      };
-
-      return schema;
+      return makeFalconConnectSourceService(config);
     }),
   },
 ) {}

@@ -1,13 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Effect, Schema } from "effect";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import {
-  connectionStatusSchema,
-  createInstallIntentInputSchema,
-  falconSystemScopes,
-  trustedAppStatusSchema,
-  updateConnectionStatusInputSchema,
-} from "@falcon/sdk";
+import { CreateInstallIntentInput, UpdateConnectionStatusInput } from "@falcon/sdk/effect";
 
 import { JsonCard, PageFrame, Panel, StatusPill } from "@/components/ui";
 import { sourceDemoConfig } from "@/lib/config";
@@ -43,20 +38,24 @@ function RouteComponent() {
   }, [state.connection?.connectionId, state.latestIntent?.intentToken, state.latestToken?.token]);
 
   const protocolCatalog = {
-    falconSystemScopes,
-    trustedAppStatus: trustedAppStatusSchema.options,
-    connectionStatus: connectionStatusSchema.options,
-    validatedCreateInstallIntent: createInstallIntentInputSchema.parse({
-      targetAppId: sourceDemoConfig.targetAppId,
-      falconSubjectId: "subj-red-cliff-platform",
-      organizationId: "org-red-cliff",
-      requestedScopes: [...sourceDemoConfig.defaultScopes],
-      sourceReturnUrl: sourceDemoConfig.callbackUrl,
-    }),
-    validatedConnectionStatusUpdate: updateConnectionStatusInputSchema.parse({
-      connectionId: state.connection?.connectionId ?? "connection-id",
-      status: "active",
-    }),
+    falconSystemScopes: ["read:app-info"] as const,
+    trustedAppStatus: ["active", "inactive"] as const,
+    connectionStatus: ["pending", "active", "paused", "revoked", "denied"] as const,
+    validatedCreateInstallIntent: Effect.runSync(
+      Schema.decodeUnknown(CreateInstallIntentInput)({
+        targetAppId: sourceDemoConfig.targetAppId,
+        falconSubjectId: "subj-red-cliff-platform",
+        organizationId: "org-red-cliff",
+        requestedScopes: [...sourceDemoConfig.defaultScopes],
+        sourceReturnUrl: new URL(sourceDemoConfig.callbackUrl),
+      }),
+    ),
+    validatedConnectionStatusUpdate: Effect.runSync(
+      Schema.decodeUnknown(UpdateConnectionStatusInput)({
+        connectionId: state.connection?.connectionId ?? "connection-id",
+        status: "active",
+      }),
+    ),
   };
 
   return (
@@ -70,7 +69,7 @@ function RouteComponent() {
         subtitle="Shared schemas and constants stay visible so the mental model and the actual wire contracts never drift apart."
       >
         <div className="mb-4 flex flex-wrap gap-2">
-          {falconSystemScopes.map((scope) => (
+          {protocolCatalog.falconSystemScopes.map((scope) => (
             <StatusPill key={scope} tone="good">
               {scope}
             </StatusPill>

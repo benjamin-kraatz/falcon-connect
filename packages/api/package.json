@@ -21,6 +21,7 @@
     "@orpc/zod": "catalog:",
     "dotenv": "catalog:",
     "drizzle-orm": "^0.45.1",
+    "effect": "catalog:effect",
     "jose": "^6.2.2",
     "zod": "catalog:"
   },

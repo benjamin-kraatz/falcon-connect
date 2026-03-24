@@ -1,15 +1,21 @@
 import { Effect, ParseResult, Schema } from "effect";
-import { createRemoteJWKSet, decodeJwt, importJWK, jwtVerify } from "jose";
-import { FALCON_APP_AUTH_HEADERS } from "./constants";
+import { createRemoteJWKSet, decodeJwt, exportJWK, importJWK, jwtVerify, SignJWT } from "jose";
+import {
+  DEFAULT_CONNECTION_TOKEN_TTL_SECONDS,
+  DEFAULT_INSTALL_INTENT_TTL_SECONDS,
+  FALCON_APP_AUTH_HEADERS,
+} from "./constants";
 import {
   JwtDecodeError,
+  JwtSigningError,
   JwtVerificationError,
   OkpKeyImportError,
+  PublicJwkDerivationError,
   RequestPayloadCanonicalizationError,
   RequestPayloadSigningError,
   Sha256Base64UrlError,
 } from "./errors";
-import { ConnectionAccessTokenClaims } from "./protocol";
+import { ConnectionAccessTokenClaims, InstallIntentClaims } from "./protocol";
 
 /**
  * A JSON Web Key object or its JSON string form, used when importing OKP (Ed25519) keys.
@@ -30,12 +36,10 @@ function toBase64Url(buffer: ArrayBuffer | Uint8Array) {
   return Buffer.from(bytes).toString("base64url");
 }
 
-/**
- * Decodes a Base64URL string into raw bytes.
- *
- * @param value - Base64URL-encoded input (no padding).
- * @returns Decoded bytes as a `Uint8Array`.
- */
+function fromBase64Url(value: string) {
+  return new Uint8Array(Buffer.from(value, "base64url"));
+}
+
 /**
  * Parses a supported JWK input into a {@link JsonWebKey} object.
  *
@@ -326,6 +330,183 @@ export const verifyConnectionAccessTokenEffect = Effect.fn("verifyConnectionAcce
       catch: (cause) => new JwtVerificationError({ cause }),
     });
     return yield* Schema.decodeUnknown(ConnectionAccessTokenClaims)(payload).pipe(
+      Effect.mapError((cause) => new JwtVerificationError({ cause })),
+    );
+  },
+);
+
+/**
+ * Verify an incoming Falcon app signed request (Ed25519 over the canonical string).
+ *
+ * @returns `true` when the signature is valid for the canonical payload.
+ */
+export const verifyFalconAppRequestEffect = Effect.fn("verifyFalconAppRequestEffect")(
+  function* (input: {
+    appId: string;
+    keyId: string;
+    publicJwk: SupportedJwk;
+    method: string;
+    url: string;
+    body?: string;
+    timestamp: string;
+    nonce: string;
+    signature: string;
+  }) {
+    const key = yield* importOkpKey(input.publicJwk, "verify");
+    const canonical = yield* canonicalizeFalconAppRequest({
+      appId: input.appId,
+      keyId: input.keyId,
+      method: input.method,
+      url: input.url,
+      body: input.body ?? "",
+      timestamp: input.timestamp,
+      nonce: input.nonce,
+    }).pipe(Effect.mapError((cause) => new RequestPayloadCanonicalizationError({ input, cause })));
+    return yield* Effect.tryPromise({
+      try: () =>
+        crypto.subtle.verify(
+          "Ed25519",
+          key,
+          fromBase64Url(input.signature),
+          encoder.encode(canonical),
+        ),
+      catch: (cause) => new RequestPayloadSigningError({ cause }),
+    });
+  },
+);
+
+const signFalconJwtEffect = Effect.fn("signFalconJwtEffect")(function* (input: {
+  privateJwk: SupportedJwk;
+  keyId: string;
+  issuer: string;
+  audience: string;
+  subject: string;
+  claims: Record<string, unknown>;
+  expiresInSeconds: number;
+}) {
+  const key = yield* importOkpKey(input.privateJwk, "sign");
+  const now = Math.floor(Date.now() / 1000);
+  return yield* Effect.tryPromise({
+    try: () =>
+      new SignJWT(input.claims)
+        .setProtectedHeader({ alg: "EdDSA", kid: input.keyId, typ: "JWT" })
+        .setIssuer(input.issuer)
+        .setAudience(input.audience)
+        .setSubject(input.subject)
+        .setIssuedAt(now)
+        .setExpirationTime(now + input.expiresInSeconds)
+        .setJti(crypto.randomUUID())
+        .sign(key),
+    catch: (cause) => new JwtSigningError({ cause }),
+  });
+});
+
+/**
+ * Sign an install intent JWT (Falcon-issued handoff token).
+ */
+export const signInstallIntentTokenEffect = Effect.fn("signInstallIntentTokenEffect")(
+  function* (input: {
+    privateJwk: SupportedJwk;
+    keyId: string;
+    issuer: string;
+    audience: string;
+    claims: InstallIntentClaims;
+    expiresInSeconds?: number;
+  }) {
+    return yield* signFalconJwtEffect({
+      privateJwk: input.privateJwk,
+      keyId: input.keyId,
+      issuer: input.issuer,
+      audience: input.audience,
+      subject: input.claims.intentId,
+      claims: input.claims as unknown as Record<string, unknown>,
+      expiresInSeconds: input.expiresInSeconds ?? DEFAULT_INSTALL_INTENT_TTL_SECONDS,
+    });
+  },
+);
+
+type ConnectionAccessTokenClaimsPayload = Omit<
+  ConnectionAccessTokenClaims,
+  "iss" | "aud" | "sub" | "iat" | "exp" | "jti"
+>;
+
+/**
+ * Sign a connection access JWT for runtime API calls.
+ */
+export const signConnectionAccessTokenEffect = Effect.fn("signConnectionAccessTokenEffect")(
+  function* (input: {
+    privateJwk: SupportedJwk;
+    keyId: string;
+    issuer: string;
+    audience: string;
+    subject: string;
+    claims: ConnectionAccessTokenClaimsPayload;
+    expiresInSeconds?: number;
+  }) {
+    return yield* signFalconJwtEffect({
+      privateJwk: input.privateJwk,
+      keyId: input.keyId,
+      issuer: input.issuer,
+      audience: input.audience,
+      subject: input.subject,
+      claims: input.claims as unknown as Record<string, unknown>,
+      expiresInSeconds: input.expiresInSeconds ?? DEFAULT_CONNECTION_TOKEN_TTL_SECONDS,
+    });
+  },
+);
+
+/**
+ * Derive a public Ed25519 JWK from a private JWK (or return the minimal public fields when already present).
+ */
+export const getPublicJwkEffect = Effect.fn("getPublicJwkEffect")(function* (
+  privateJwk: SupportedJwk,
+) {
+  const parsed = parseJwk(privateJwk);
+
+  if (parsed.kty === "OKP" && parsed.crv === "Ed25519" && parsed.x) {
+    return {
+      kty: parsed.kty,
+      crv: parsed.crv,
+      x: parsed.x,
+    } satisfies JsonWebKey;
+  }
+
+  const key = yield* importOkpKey(privateJwk, "sign");
+  const exported = yield* Effect.tryPromise({
+    try: () => exportJWK(key),
+    catch: (cause) => new PublicJwkDerivationError({ cause }),
+  });
+
+  if (!exported.x || !exported.kty || !exported.crv) {
+    return yield* Effect.fail(
+      new PublicJwkDerivationError({
+        cause: new Error("Unable to derive a public JWK from the configured signing key"),
+      }),
+    );
+  }
+
+  return {
+    kty: exported.kty,
+    crv: exported.crv,
+    x: exported.x,
+  } satisfies JsonWebKey;
+});
+
+/**
+ * Verify an install intent JWT against JWKS and decode {@link InstallIntentClaims}.
+ */
+export const verifyInstallIntentTokenEffect = Effect.fn("verifyInstallIntentTokenEffect")(
+  function* (input: { token: string; issuer: string; audience: string; jwksUrl: string }) {
+    const keySet = createRemoteJWKSet(new URL(input.jwksUrl));
+    const { payload } = yield* Effect.tryPromise({
+      try: () =>
+        jwtVerify(input.token, keySet, {
+          issuer: input.issuer,
+          audience: input.audience,
+        }),
+      catch: (cause) => new JwtVerificationError({ cause }),
+    });
+    return yield* Schema.decodeUnknown(InstallIntentClaims)(payload).pipe(
       Effect.mapError((cause) => new JwtVerificationError({ cause })),
     );
   },

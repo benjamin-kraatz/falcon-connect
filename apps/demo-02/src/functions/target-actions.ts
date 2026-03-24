@@ -1,4 +1,6 @@
+import { IntentToken } from "@falcon/sdk/effect";
 import { createServerFn } from "@tanstack/react-start";
+import { Effect } from "effect";
 import { z } from "zod";
 
 import { buildTargetSdkDiagnostics, targetClient } from "@/lib/target-server";
@@ -25,29 +27,35 @@ const diagnosticsSchema = z.object({
 export const resolveInstallIntentAction = createServerFn({ method: "POST" })
   .inputValidator(intentTokenSchema)
   .handler(async ({ data }) => {
-    return targetClient.resolveInstallIntent(data.intentToken);
+    return Effect.runPromise(targetClient.resolveInstallIntent(IntentToken.make(data.intentToken)));
   });
 
 export const approveInstallIntentAction = createServerFn({ method: "POST" })
   .inputValidator(approvalSchema)
   .handler(async ({ data }) => {
-    const intent = await targetClient.resolveInstallIntent(data.intentToken);
-    return targetClient.approveInstallIntent({
-      intent,
-      intentToken: data.intentToken,
-      selectedScopeNames: data.selectedScopeNames,
-    });
+    const intent = await Effect.runPromise(
+      targetClient.resolveInstallIntent(IntentToken.make(data.intentToken)),
+    );
+    return Effect.runPromise(
+      targetClient.approveInstallIntent({
+        intent,
+        intentToken: IntentToken.make(data.intentToken),
+        selectedScopeNames: data.selectedScopeNames,
+      }),
+    );
   });
 
 export const denyInstallIntentAction = createServerFn({ method: "POST" })
   .inputValidator(denialSchema)
   .handler(async ({ data }) => {
-    return targetClient.submitInstallIntentDecision({
-      intentToken: data.intentToken,
-      approved: false,
-      deniedReason: data.deniedReason,
-      grantedScopes: [],
-    });
+    return Effect.runPromise(
+      targetClient.submitInstallIntentDecision({
+        intentToken: data.intentToken,
+        approved: false,
+        deniedReason: data.deniedReason,
+        grantedScopes: [],
+      }),
+    );
   });
 
 export const buildTargetSdkDiagnosticsAction = createServerFn({ method: "POST" })

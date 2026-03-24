@@ -143,6 +143,16 @@ export class JwtDecodeError extends Data.TaggedError("JwtDecodeError")<{
   cause: unknown;
 }> {}
 
+/** Failed to derive a public Ed25519 JWK from a private key (export or missing coordinates). */
+export class PublicJwkDerivationError extends Data.TaggedError("PublicJwkDerivationError")<{
+  cause: unknown;
+}> {}
+
+/** Failed to sign a JWT with `jose` `SignJWT` (install intent or connection token). */
+export class JwtSigningError extends Data.TaggedError("JwtSigningError")<{
+  cause: unknown;
+}> {}
+
 /**
  * Composite failure for `FalconConnectTargetServiceDef.verifyConnectionToken`: local verification,
  * unsafe decode for introspection, or the subsequent signed introspection request.

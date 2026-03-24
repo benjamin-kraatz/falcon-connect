@@ -1,12 +1,10 @@
 import {
+  ResolvedInstallIntent,
   buildConsentSelection,
-  connectionStatusSchema,
-  falconSystemScopes,
   normalizeGrantedScopes,
-  resolvedInstallIntentSchema,
-  trustedAppStatusSchema,
-} from "@falcon/sdk";
+} from "@falcon/sdk/effect";
 import { createFileRoute } from "@tanstack/react-router";
+import { Effect, Schema } from "effect";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -46,17 +44,21 @@ function RouteComponent() {
       return null;
     }
 
+    const validatedIntent = Effect.runSync(
+      Schema.decodeUnknown(ResolvedInstallIntent)(state.latestResolvedIntent),
+    );
+
     return {
-      validatedIntent: resolvedInstallIntentSchema.parse(state.latestResolvedIntent),
-      selection: buildConsentSelection(state.latestResolvedIntent),
-      normalizedScopes: normalizeGrantedScopes(state.latestResolvedIntent),
+      validatedIntent,
+      selection: buildConsentSelection(validatedIntent),
+      normalizedScopes: normalizeGrantedScopes(validatedIntent),
     };
   }, [state.latestResolvedIntent]);
 
   const protocolCatalog = {
-    falconSystemScopes,
-    trustedAppStatus: trustedAppStatusSchema.options,
-    connectionStatus: connectionStatusSchema.options,
+    falconSystemScopes: ["read:app-info"] as const,
+    trustedAppStatus: ["active", "inactive"] as const,
+    connectionStatus: ["pending", "active", "paused", "revoked", "denied"] as const,
   };
 
   return (
@@ -70,7 +72,7 @@ function RouteComponent() {
         subtitle="Shared constants and status enums used across the target implementation."
       >
         <div className="mb-4 flex flex-wrap gap-2">
-          {falconSystemScopes.map((scope) => (
+          {protocolCatalog.falconSystemScopes.map((scope) => (
             <StatusPill key={scope} tone="good">
               {scope}
             </StatusPill>

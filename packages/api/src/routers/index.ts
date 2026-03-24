@@ -9,7 +9,13 @@ import {
   updateConnectionStatus,
 } from "../connect";
 import { protectedProcedure, publicProcedure } from "../index";
-import { updateConnectionStatusInputSchema } from "@falcon/sdk";
+import { z } from "zod";
+
+const updateConnectionStatusInputSchema = z.object({
+  connectionId: z.string().min(1),
+  status: z.enum(["active", "paused", "revoked"]),
+  reason: z.string().trim().min(1).max(500).optional(),
+});
 
 export const appRouter = {
   healthCheck: publicProcedure.handler(() => {

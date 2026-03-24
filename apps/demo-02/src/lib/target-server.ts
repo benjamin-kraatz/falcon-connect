@@ -1,12 +1,14 @@
+import { Effect } from "effect";
 import {
+  AppId,
   canonicalizeFalconAppRequest,
   createFalconAppAuthHeaders,
-  createFalconConnectTargetClient,
-  decodeJwtUnsafe,
-  getPublicJwk,
+  decodeJwtUnsafeEffect,
+  getPublicJwkEffect,
+  makeFalconConnectTargetService,
   signFalconAppRequest,
-  verifyFalconAppRequest,
-} from "@falcon/sdk";
+  verifyFalconAppRequestEffect,
+} from "@falcon/sdk/effect";
 
 import { incidentCatalog, onCallRoster, runbookCatalog, serviceHealth } from "./demo-data";
 import { targetDemoConfig } from "./config";
@@ -36,9 +38,9 @@ export type TargetSdkDiagnostics = {
   } | null;
 };
 
-export const targetClient = createFalconConnectTargetClient({
-  baseUrl: targetDemoConfig.falconBaseUrl,
-  appId: targetDemoConfig.appId,
+export const targetClient = makeFalconConnectTargetService({
+  baseUrl: new URL(targetDemoConfig.falconBaseUrl),
+  appId: AppId.make(targetDemoConfig.appId),
   keyId: targetDemoConfig.keyId,
   privateJwk: TARGET_PRIVATE_JWK,
 });
@@ -54,11 +56,13 @@ export async function verifyRuntimeRequest(request: Request, requiredScope: stri
   const token = authHeader.slice("Bearer ".length);
 
   if (mode === "force-introspection") {
-    const decoded = decodeJwtUnsafe(token);
-    const introspection = await targetClient.introspectConnection({
-      connectionId: typeof decoded.connectionId === "string" ? decoded.connectionId : undefined,
-      connectionToken: token,
-    });
+    const decoded = Effect.runSync(decodeJwtUnsafeEffect(token));
+    const introspection = await Effect.runPromise(
+      targetClient.introspectConnection({
+        connectionId: typeof decoded.connectionId === "string" ? decoded.connectionId : undefined,
+        connectionToken: token,
+      }),
+    );
 
     if (!introspection.active || !introspection.connection) {
       throw new Error(
@@ -86,10 +90,12 @@ export async function verifyRuntimeRequest(request: Request, requiredScope: stri
     };
   }
 
-  const verified = await targetClient.verifyConnectionToken({
-    token,
-    allowIntrospectionFallback: false,
-  });
+  const verified = await Effect.runPromise(
+    targetClient.verifyConnectionToken({
+      token,
+      allowIntrospectionFallback: false,
+    }),
+  );
 
   if (verified.mode !== "local") {
     throw new Error("Expected local verification result for runtime request");
@@ -118,49 +124,59 @@ export async function buildTargetSdkDiagnostics(input: {
     connectionId: "demo-connection-id",
   });
   const requestUrl = `${targetDemoConfig.falconBaseUrl}/v1/connections/introspect`;
-  const publicJwk = await getPublicJwk(TARGET_PRIVATE_JWK);
-  const signed = await signFalconAppRequest({
-    appId: targetDemoConfig.appId,
-    keyId: targetDemoConfig.keyId,
-    privateJwk: TARGET_PRIVATE_JWK,
-    method: "POST",
-    url: requestUrl,
-    body: demoBody,
-  });
-  const authHeaders = await createFalconAppAuthHeaders({
-    appId: targetDemoConfig.appId,
-    keyId: targetDemoConfig.keyId,
-    privateJwk: TARGET_PRIVATE_JWK,
-    method: "POST",
-    url: requestUrl,
-    body: demoBody,
-  });
-  const verified = await verifyFalconAppRequest({
-    appId: targetDemoConfig.appId,
-    keyId: targetDemoConfig.keyId,
-    publicJwk,
-    method: "POST",
-    url: requestUrl,
-    body: demoBody,
-    timestamp: signed.timestamp,
-    nonce: signed.nonce,
-    signature: signed.signature,
-  });
-  const canonical = await canonicalizeFalconAppRequest({
-    appId: targetDemoConfig.appId,
-    keyId: targetDemoConfig.keyId,
-    method: "POST",
-    url: requestUrl,
-    body: demoBody,
-    timestamp: signed.timestamp,
-    nonce: signed.nonce,
-  });
+  const publicJwk = await Effect.runPromise(getPublicJwkEffect(TARGET_PRIVATE_JWK));
+  const signed = await Effect.runPromise(
+    signFalconAppRequest({
+      appId: targetDemoConfig.appId,
+      keyId: targetDemoConfig.keyId,
+      privateJwk: TARGET_PRIVATE_JWK,
+      method: "POST",
+      url: requestUrl,
+      body: demoBody,
+    }),
+  );
+  const authHeaders = await Effect.runPromise(
+    createFalconAppAuthHeaders({
+      appId: targetDemoConfig.appId,
+      keyId: targetDemoConfig.keyId,
+      privateJwk: TARGET_PRIVATE_JWK,
+      method: "POST",
+      url: requestUrl,
+      body: demoBody,
+    }),
+  );
+  const verified = await Effect.runPromise(
+    verifyFalconAppRequestEffect({
+      appId: targetDemoConfig.appId,
+      keyId: targetDemoConfig.keyId,
+      publicJwk,
+      method: "POST",
+      url: requestUrl,
+      body: demoBody,
+      timestamp: signed.timestamp,
+      nonce: signed.nonce,
+      signature: signed.signature,
+    }),
+  );
+  const canonical = await Effect.runPromise(
+    canonicalizeFalconAppRequest({
+      appId: targetDemoConfig.appId,
+      keyId: targetDemoConfig.keyId,
+      method: "POST",
+      url: requestUrl,
+      body: demoBody,
+      timestamp: signed.timestamp,
+      nonce: signed.nonce,
+    }),
+  );
 
   const liveVerification = input.latestConnectionToken
-    ? await targetClient.verifyConnectionToken({
-        token: input.latestConnectionToken,
-        allowIntrospectionFallback: true,
-      })
+    ? await Effect.runPromise(
+        targetClient.verifyConnectionToken({
+          token: input.latestConnectionToken,
+          allowIntrospectionFallback: true,
+        }),
+      )
     : null;
 
   return {
@@ -170,7 +186,7 @@ export async function buildTargetSdkDiagnostics(input: {
     verified,
     canonical,
     latestIntentDecoded: input.latestIntentToken
-      ? (decodeJwtUnsafe(input.latestIntentToken) as Record<string, {}>)
+      ? (Effect.runSync(decodeJwtUnsafeEffect(input.latestIntentToken)) as Record<string, {}>)
       : null,
     liveVerification: liveVerification
       ? {

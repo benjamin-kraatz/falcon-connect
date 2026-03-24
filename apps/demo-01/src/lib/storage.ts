@@ -1,4 +1,4 @@
-import type { CreateInstallIntentResult, IssueConnectionTokenResult } from "@falcon/sdk";
+import type { CreateInstallIntentResult, IssueConnectionTokenResult } from "@falcon/sdk/effect";
 
 export type SourceRuntimeCall = {
   id: string;
