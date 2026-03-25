@@ -76,6 +76,47 @@ You would normally create **one** of these clients per app role. A source-only a
 
 The source app starts the relationship by creating an install intent.
 
+In many real products, there is one step before that: fetch the target app manifest so your UI can display the current scope catalog without copying target scopes into your own codebase.
+
+## Source App: Load the Target App Manifest
+
+Use the source client to fetch the target app's manifest and build any source-side configuration UI from the returned `scopes`.
+
+```ts
+import { falconSource } from "./falcon";
+
+export async function loadInvoicesManifest() {
+  return falconSource.getTrustedAppManifest({
+    appId: "invoices",
+  });
+}
+```
+
+That response is useful for:
+
+- showing the target app's display name and support links
+- listing available scopes before the redirect starts
+- defaulting required scopes to enabled in your own UI
+- avoiding duplicated scope constants in the source app
+
+An example mapping for a settings dialog:
+
+```ts
+export async function loadInvoicesScopePicker() {
+  const manifest = await loadInvoicesManifest();
+
+  return manifest.scopes.map((scope) => ({
+    id: scope.name,
+    title: scope.displayName,
+    description: scope.description,
+    checked: true,
+    disabled: scope.requiredByDefault || scope.system,
+  }));
+}
+```
+
+Once the user confirms the desired scope set, pass the selected scope names into `requestedScopes` when creating the install intent.
+
 ```ts
 import { falconSource } from "./falcon";
 

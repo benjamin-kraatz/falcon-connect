@@ -40,6 +40,29 @@ The request body contains:
 
 This is where you should think carefully about the business context you are using. FALCON Connect does not infer `falconSubjectId` or `organizationId` for you. Your application supplies them, and those values become part of the connection identity.
 
+## Discovering the Target Manifest First
+
+If your source app needs to show the user which scopes the target app supports before it redirects into the install flow, fetch the trusted app manifest first.
+
+That manifest contains:
+
+- the target app display name and support metadata
+- the declared scope catalog
+- which scopes are required by default
+- which scopes are system scopes
+
+This is the recommended source-side foundation for integration settings pages and "Connect to X" dialogs. It keeps your UI aligned with the target app's published manifest instead of duplicating scope names and labels in your own codebase.
+
+Use:
+
+```text
+POST /v1/trusted-apps/manifest
+```
+
+with the target app id, or `getTrustedAppManifest` on the source SDK client.
+
+Once you have the manifest, let the user choose from the optional scopes and then pass the resulting scope names into `requestedScopes` when you create the install intent.
+
 ## Redirecting the User
 
 If FALCON accepts the request, it returns a `connectUrl`. Redirect the user there exactly as returned. Do not rebuild the URL manually unless you have a very specific reason to do so.
@@ -81,3 +104,5 @@ In practice, most partner integrations will carry the FALCON JWT in an authoriza
 Keep runtime tokens short-lived and mint them on demand. They are verification artifacts, not long-lived installation secrets. If a target app starts rejecting a token because it is expired or the connection state changed, treat that as an expected runtime condition and recover by asking FALCON for a fresh token or by surfacing that the connection is no longer active.
 
 If your product should pause, resume, or revoke the connection from the source side (not only through the operator dashboard), use the partner status API (`POST /v1/connections/status`). The same endpoint is available to the target app when that side is responsible for the change. See the [SDK Usage Guide](../sdk-usage-guide#source-and-target-update-connection-status).
+
+If your product renders a source-side scope picker, treat the trusted app manifest as your source of truth. Do not hardcode the target app's scopes in your own app unless you deliberately want a stale fallback.

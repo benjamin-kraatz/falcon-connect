@@ -22,6 +22,17 @@ If `POST /v1/install-intents` fails, the most common causes are:
 
 If the failure looks intermittent, check the timestamp and nonce behavior before anything else. A stale clock or nonce reuse can look surprising if you are focused only on the signature bytes.
 
+## Manifest Discovery Fails
+
+If the source app cannot load `POST /v1/trusted-apps/manifest`, the usual causes are:
+
+- the target app id is wrong
+- the calling trusted app identity or key is wrong
+- the request signature is invalid
+- the target app exists but is inactive
+
+If your source-side scope picker is empty or missing labels, verify first that you are rendering the returned manifest rather than a stale local fallback.
+
 ## The User Reaches the Target App but the Intent Cannot Be Resolved
 
 When the target app cannot resolve the install token, the likely causes are:

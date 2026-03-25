@@ -57,6 +57,8 @@ That means the UX can and should follow your application's own design system. Wh
 
 The SDK includes helper functions to build a consent selection model, but the final experience is yours to shape.
 
+From the wider ecosystem perspective, this also means your manifest matters before the user ever reaches your app. Source apps may now fetch your trusted app manifest to build their own preflight UI and scope selection before they create an install intent. Keep your published scope names, labels, and descriptions precise because they are no longer visible only inside the target-hosted consent page.
+
 ## Submitting the Decision
 
 When the user makes a decision, your app calls FALCON again and submits either approval or denial.

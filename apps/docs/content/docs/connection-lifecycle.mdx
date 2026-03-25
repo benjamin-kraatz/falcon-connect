@@ -8,6 +8,22 @@ icon: Workflow
 
 The most useful way to understand FALCON Connect is to follow a single connection from beginning to end.
 
+## Step 0: The Source App May Discover the Target Manifest
+
+Before the install flow starts, the source app may ask FALCON for the target app's trusted manifest:
+
+```text
+POST /v1/trusted-apps/manifest
+```
+
+This is the recommended preflight step when the source app wants to:
+
+- render the target app name or support details in its UI
+- build a scope picker from the target app's published scope catalog
+- default required or system scopes correctly before install creation
+
+The manifest is discovery data, not connection state. It tells the source app what the target app publishes, not what a particular connection has already been granted.
+
 ## Step 1: The Source App Creates an Install Intent
 
 The source app begins by asking FALCON Connect to create an install intent. This is the moment where the source app says, in effect, "I want to connect to this target app, for this FALCON subject and organization, with these requested scopes, and I want the user to come back to this callback URL afterward."
