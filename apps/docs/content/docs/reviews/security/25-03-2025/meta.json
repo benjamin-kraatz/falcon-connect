@@ -1,19 +1,4 @@
 {
   "title": "25 March 2025",
-  "pages": [
-    "index",
-    "FC-SEC-001-hardcoded-falcon-signing-key",
-    "FC-SEC-002-hardcoded-demo-app-keys",
-    "FC-SEC-003-introspection-token-not-verified",
-    "FC-SEC-004-sdk-introspection-fallback-decodeJwtUnsafe",
-    "FC-SEC-005-signed-request-host-not-bound",
-    "FC-SEC-006-nonce-replay-store-growth",
-    "FC-SEC-007-dashboard-connection-status-idor",
-    "FC-SEC-008-ops-surface-data-exposure",
-    "FC-SEC-009-install-intent-token-in-url",
-    "FC-SEC-010-validation-error-detail-leakage",
-    "FC-SEC-011-demo-insecure-reference-patterns",
-    "FC-SEC-012-source-callback-query-unauthenticated",
-    "FC-SEC-013-no-rate-limit-on-v1"
-  ]
+  "pages": ["index", "overview", "critical", "high", "medium", "low"]
 }

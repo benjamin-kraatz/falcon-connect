@@ -1,0 +1,12 @@
+{
+  "title": "Medium",
+  "pages": [
+    "index",
+    "FC-SEC-005-signed-request-host-not-bound",
+    "FC-SEC-006-nonce-replay-store-growth",
+    "FC-SEC-008-ops-surface-data-exposure",
+    "FC-SEC-009-install-intent-token-in-url",
+    "FC-SEC-012-source-callback-query-unauthenticated",
+    "FC-SEC-013-no-rate-limit-on-v1"
+  ]
+}
