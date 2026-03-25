@@ -1,9 +1,9 @@
 ---
-title: "FALCON Connect security review — 2026-03-25"
+title: "FALCON Connect security review — 25 March 2025"
 description: Evidence-backed review at commit b896a79ce6833e5d92c7b2499d26dd1c29aa96f7 (branch cursor/connect-security-review-cb25).
 ---
 
-# FALCON Connect — security review (2026-03-25)
+# FALCON Connect — security review (25 March 2025)
 
 **Repository commit reviewed:** `b896a79ce6833e5d92c7b2499d26dd1c29aa96f7`  
 **Branch:** `cursor/connect-security-review-cb25`
@@ -34,7 +34,7 @@ Secondary issues include **signed-request canonicalization that ignores scheme/h
 ### Trust boundaries
 
 - **Connect server** may assert: trusted app registry rows, install intent and connection lifecycle state, issuance of Falcon-signed JWTs, and enforcement of signing + nonce rules for `/v1/*`.
-- **Clients must cryptographically verify**: connection access JWTs via JWKS (`jose` remote JWKS + `iss`/`aud`), and **must not** treat introspection alone as proof of possession unless the API is fixed to verify the token or bind proof (see [FC-SEC-003](/docs/reviews/2026-03-25/FC-SEC-003-introspection-token-not-verified)).
+- **Clients must cryptographically verify**: connection access JWTs via JWKS (`jose` remote JWKS + `iss`/`aud`), and **must not** treat introspection alone as proof of possession unless the API is fixed to verify the token or bind proof (see [FC-SEC-003](/docs/reviews/security/25-03-2025/FC-SEC-003-introspection-token-not-verified)).
 - **User consent** is enforced in the **target app UI**; Connect records the outcome and scopes but does not authenticate end users.
 
 ## Data flow (connection established)
@@ -69,25 +69,25 @@ sequenceDiagram
 | Install intent JWT | `signInstallIntentToken` (`packages/sdk/src/crypto.ts`), server uses Falcon signing key | `jwtVerify` in `verifyInternalInstallIntentToken` (`packages/api/src/connect.ts`) | Token was minted by Connect; `aud` binds token to target app id; `resolveInstallIntent` checks `intentRow.targetAppId === auth.app.id`. |
 | Connection access JWT | `signConnectionAccessToken` | Target verifies via `verifyConnectionAccessToken` (`packages/sdk/src/crypto.ts`) against `/.well-known/jwks.json` | Runtime bearer proves connection id, parties, subject, org, scopes until expiry; **issuer string must match deployed Connect URL** (`verifyConnectionToken` uses `baseUrl` as `issuer`). |
 
-**Gap:** introspection path verifies the **caller’s** app signature but not the **connection token’s** signature ([FC-SEC-003](/docs/reviews/2026-03-25/FC-SEC-003-introspection-token-not-verified)).
+**Gap:** introspection path verifies the **caller’s** app signature but not the **connection token’s** signature ([FC-SEC-003](/docs/reviews/security/25-03-2025/FC-SEC-003-introspection-token-not-verified)).
 
 ## Findings table
 
 | ID | Title | Severity | Area | CWE |
 | --- | --- | --- | --- | --- |
-| [FC-SEC-001](/docs/reviews/2026-03-25/FC-SEC-001-hardcoded-falcon-signing-key) | Hardcoded fallback Falcon Connect signing key | **CRITICAL** | api / crypto | CWE-798 |
-| [FC-SEC-002](/docs/reviews/2026-03-25/FC-SEC-002-hardcoded-demo-app-keys) | Hardcoded demo trusted-app private keys in repo and DB bootstrap | **CRITICAL** | api / apps | CWE-798 |
-| [FC-SEC-003](/docs/reviews/2026-03-25/FC-SEC-003-introspection-token-not-verified) | Introspection accepts `connectionToken` without cryptographic verification | **HIGH** | api / protocol | CWE-345 |
-| [FC-SEC-004](/docs/reviews/2026-03-25/FC-SEC-004-sdk-introspection-fallback-decodeJwtUnsafe) | SDK introspection fallback uses `decodeJwtUnsafe` | **HIGH** | sdk | CWE-347 |
-| [FC-SEC-005](/docs/reviews/2026-03-25/FC-SEC-005-signed-request-host-not-bound) | Request signing canonical string omits scheme and host | **MEDIUM** | sdk / api / protocol | CWE-444 |
-| [FC-SEC-006](/docs/reviews/2026-03-25/FC-SEC-006-nonce-replay-store-growth) | Nonce replay table grows without TTL cleanup | **MEDIUM** | db / api | CWE-400 |
-| [FC-SEC-007](/docs/reviews/2026-03-25/FC-SEC-007-dashboard-connection-status-idor) | Dashboard can update any connection by id | **HIGH** | api / auth | CWE-639 |
-| [FC-SEC-008](/docs/reviews/2026-03-25/FC-SEC-008-ops-surface-data-exposure) | Ops ORPC procedures expose registry and activity to any logged-in user | **MEDIUM** | api / auth | CWE-200 |
-| [FC-SEC-009](/docs/reviews/2026-03-25/FC-SEC-009-install-intent-token-in-url) | Install intent JWT passed in query string | **MEDIUM** | protocol / apps | CWE-598 |
-| [FC-SEC-010](/docs/reviews/2026-03-25/FC-SEC-010-validation-error-detail-leakage) | Zod validation errors returned verbatim to clients | **LOW** | api | CWE-209 |
-| [FC-SEC-011](/docs/reviews/2026-03-25/FC-SEC-011-demo-insecure-reference-patterns) | Demo apps embed secrets and unsafe token UX | **HIGH** | apps | CWE-798 |
-| [FC-SEC-012](/docs/reviews/2026-03-25/FC-SEC-012-source-callback-query-unauthenticated) | Source callback trusts query parameters without binding | **MEDIUM** | apps / protocol | CWE-345 |
-| [FC-SEC-013](/docs/reviews/2026-03-25/FC-SEC-013-no-rate-limit-on-v1) | No rate limiting on partner `/v1` API | **MEDIUM** | api / infra | CWE-400 |
+| [FC-SEC-001](/docs/reviews/security/25-03-2025/FC-SEC-001-hardcoded-falcon-signing-key) | Hardcoded fallback Falcon Connect signing key | **CRITICAL** | api / crypto | CWE-798 |
+| [FC-SEC-002](/docs/reviews/security/25-03-2025/FC-SEC-002-hardcoded-demo-app-keys) | Hardcoded demo trusted-app private keys in repo and DB bootstrap | **CRITICAL** | api / apps | CWE-798 |
+| [FC-SEC-003](/docs/reviews/security/25-03-2025/FC-SEC-003-introspection-token-not-verified) | Introspection accepts `connectionToken` without cryptographic verification | **HIGH** | api / protocol | CWE-345 |
+| [FC-SEC-004](/docs/reviews/security/25-03-2025/FC-SEC-004-sdk-introspection-fallback-decodeJwtUnsafe) | SDK introspection fallback uses `decodeJwtUnsafe` | **HIGH** | sdk | CWE-347 |
+| [FC-SEC-005](/docs/reviews/security/25-03-2025/FC-SEC-005-signed-request-host-not-bound) | Request signing canonical string omits scheme and host | **MEDIUM** | sdk / api / protocol | CWE-444 |
+| [FC-SEC-006](/docs/reviews/security/25-03-2025/FC-SEC-006-nonce-replay-store-growth) | Nonce replay table grows without TTL cleanup | **MEDIUM** | db / api | CWE-400 |
+| [FC-SEC-007](/docs/reviews/security/25-03-2025/FC-SEC-007-dashboard-connection-status-idor) | Dashboard can update any connection by id | **HIGH** | api / auth | CWE-639 |
+| [FC-SEC-008](/docs/reviews/security/25-03-2025/FC-SEC-008-ops-surface-data-exposure) | Ops ORPC procedures expose registry and activity to any logged-in user | **MEDIUM** | api / auth | CWE-200 |
+| [FC-SEC-009](/docs/reviews/security/25-03-2025/FC-SEC-009-install-intent-token-in-url) | Install intent JWT passed in query string | **MEDIUM** | protocol / apps | CWE-598 |
+| [FC-SEC-010](/docs/reviews/security/25-03-2025/FC-SEC-010-validation-error-detail-leakage) | Zod validation errors returned verbatim to clients | **LOW** | api | CWE-209 |
+| [FC-SEC-011](/docs/reviews/security/25-03-2025/FC-SEC-011-demo-insecure-reference-patterns) | Demo apps embed secrets and unsafe token UX | **HIGH** | apps | CWE-798 |
+| [FC-SEC-012](/docs/reviews/security/25-03-2025/FC-SEC-012-source-callback-query-unauthenticated) | Source callback trusts query parameters without binding | **MEDIUM** | apps / protocol | CWE-345 |
+| [FC-SEC-013](/docs/reviews/security/25-03-2025/FC-SEC-013-no-rate-limit-on-v1) | No rate limiting on partner `/v1` API | **MEDIUM** | api / infra | CWE-400 |
 
 ## Residual risk
 
@@ -102,7 +102,7 @@ After addressing CRITICAL/HIGH items, residual risk remains in: **end-user phish
 5. Scope `updateConnectionStatus` and ops APIs by role/tenant; never use placeholder actor ids for audit.
 6. Replace query-string intent delivery with POST-based or fragment-based patterns where possible.
 7. Redact or normalize validation errors in production.
-8. Add edge or middleware rate limits for `/v1/*` ([FC-SEC-013](/docs/reviews/2026-03-25/FC-SEC-013-no-rate-limit-on-v1)).
+8. Add edge or middleware rate limits for `/v1/*` ([FC-SEC-013](/docs/reviews/security/25-03-2025/FC-SEC-013-no-rate-limit-on-v1)).
 
 ## OWASP ASVS mapping (informative)
 
