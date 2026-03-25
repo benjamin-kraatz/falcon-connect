@@ -1,0 +1,41 @@
+---
+title: "FC-SEC-006 — Nonce replay store grows without documented cleanup"
+description: MEDIUM — Availability / abuse; unique index on (appId, nonce) without TTL purge observed.
+---
+
+# FC-SEC-006: Nonce replay store grows without documented cleanup
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **MEDIUM** |
+| **Confidence** | **Medium** (0.7) |
+| **Area** | `db`, `api` |
+| **CWE** | CWE-400 (Uncontrolled Resource Consumption) |
+
+## Summary
+
+Each successful `/v1/*` request inserts a row into `trusted_app_request_nonce` with `expiresAt` set to now + `DEFAULT_APP_REQUEST_TTL_SECONDS` (300s). The schema has a **unique index** on `(appId, nonce)` and an index on `expiresAt`, but **no migration or job** was found in this review that deletes expired nonces.
+
+## Leaked risks / impact
+
+- **Database growth** and slower lookups over time.
+- **Sustained high request volume** from many app ids could amplify storage and backup costs.
+- The unique constraint means **nonce space exhaustion** is not an issue per app (nonces are UUIDs), but **operational failure modes** (disk full) can become availability incidents.
+
+This is not a direct confidentiality breach; it is **availability / abuse hygiene**.
+
+## Evidence
+
+- Insert on auth: `packages/api/src/connect.ts` (`authenticateTrustedAppRequest`, lines 762–782).
+- Schema: `packages/db/src/schema/connect.ts` (`trustedAppRequestNonce`, lines 197–215).
+
+## Mitigation
+
+1. Scheduled job: `DELETE FROM trusted_app_request_nonce WHERE expires_at < now()`.
+2. Consider **Redis** or similar for nonce deduplication with native TTL.
+3. Rate limit `/v1/*` per `appId` + source IP at the edge.
+
+## Tests / fuzz ideas
+
+- Load test: verify cleanup job keeps table size bounded.
+- Chaos: simulate DB near capacity and ensure graceful degradation (503 vs data corruption).

@@ -1,0 +1,45 @@
+---
+title: "FC-SEC-011 — Demo apps embed secrets and unsafe token handling"
+description: HIGH — Copy-paste risk; private keys, localStorage, debug-style HTTP APIs.
+---
+
+# FC-SEC-011: Demo apps embed secrets and unsafe token handling
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **HIGH** (for **integrator misuse**; not necessarily remote RCE) |
+| **Confidence** | **High** (0.9) |
+| **Area** | `apps` |
+| **CWE** | CWE-798, CWE-922 |
+
+## Summary
+
+Demo applications are structured as **reference integrations** but contain patterns that are **unsafe if copied** into production:
+
+1. **Hardcoded Ed25519 private JWK** in `apps/demo-02/src/lib/target-server.ts` (duplicates server demo material).
+2. **`localStorage` persistence** of connection and token state in `apps/demo-01/src/lib/storage.ts` (tokens and connection ids survive in the browser; XSS becomes full compromise).
+3. **HTTP endpoint** `apps/demo-02/src/routes/api/runtime/verify.ts` accepts a **bearer token in JSON body** from the client and forwards verification — convenient for demos, **dangerous** if exposed publicly without auth (token exfiltration / oracle).
+
+## Leaked risks / impact
+
+- Integrators copy-paste **private keys** into repos or ship them to browsers.
+- **XSS** on source demo origin steals stored connection state.
+- Publicly reachable **verify** endpoint becomes a **token probing** oracle.
+
+## Evidence
+
+- Target demo key: `apps/demo-02/src/lib/target-server.ts` (lines 14–19, 39–44).
+- Source demo storage: `apps/demo-01/src/lib/storage.ts` (full file; `STORAGE_KEY`, `latestToken` patterns).
+- Verify route: `apps/demo-02/src/routes/api/runtime/verify.ts` (POST handler with `body.token`).
+
+## Mitigation
+
+1. Banner in demo UI: **“DO NOT COPY — insecure by design.”**
+2. Move demo keys to **`.env.example`** + runtime injection only; never commit `d` values.
+3. Replace `localStorage` with **session-only** memory or httpOnly cookie patterns in “secure” example branch.
+4. Gate demo verify routes behind **dev-only** flag or localhost check.
+
+## Tests / fuzz ideas
+
+- Repo lint: block `kty.*OKP` with `d:` in `apps/demo-*` in CI for release builds.
+- OWASP ZAP scan against demo stack documenting expected findings vs prod.

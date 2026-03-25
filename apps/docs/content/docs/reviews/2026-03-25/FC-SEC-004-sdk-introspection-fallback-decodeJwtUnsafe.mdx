@@ -1,0 +1,46 @@
+---
+title: "FC-SEC-004 — SDK introspection fallback uses decodeJwtUnsafe"
+description: HIGH — Target client can skip JWT verification and still call introspection with parsed claims.
+---
+
+# FC-SEC-004: SDK introspection fallback uses `decodeJwtUnsafe`
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **HIGH** |
+| **Confidence** | **High** (0.85) |
+| **Area** | `sdk` |
+| **CWE** | CWE-347 (Improper Verification of Cryptographic Signature) |
+
+## Summary
+
+`FalconConnectTargetClient.verifyConnectionToken` (Promise API) and the Effect equivalent document an optional path: when `allowIntrospectionFallback` is true and local JWKS verification fails, the SDK **`decodeJwtUnsafe`** the token to read `connectionId`, then calls **`introspectConnection`** with `connectionToken: token`.
+
+Given [FC-SEC-003](./FC-SEC-003-introspection-token-not-verified), this composes into **“skip signature verification end-to-end”** if integrators enable the fallback in production.
+
+## Leaked risks / impact
+
+- Integrators may enable fallback to “make it work” under clock skew, JWKS outages, or misconfigured `issuer` strings.
+- Attackers who can pass a token into the verifier (e.g. confused deputy in demo code) may rely on **unverified** claim extraction plus **server-side introspection that also skips verification**.
+
+## Preconditions / scenario
+
+1. Target app sets `allowIntrospectionFallback: true` on `verifyConnectionToken`.
+2. Attacker supplies a crafted JWT-shaped string (see FC-SEC-003).
+
+## Evidence
+
+- `packages/sdk/src/target.ts` (`verifyConnectionToken`, lines 136–163).
+- Effect layer documents the same behavior: `packages/sdk/src/effect/target.ts` (comment block ~171–181).
+- Public export `decodeJwtUnsafe`: `packages/sdk/src/crypto.ts` (lines 225–227).
+
+## Mitigation
+
+1. **Default deny**: remove or hard-disable fallback in production builds; require explicit insecure flag for demos only.
+2. If fallback is needed, **only** call introspection with **`connectionId` after partial verified parse** (e.g. verify signature with cached JWKS first; on network failure, fail closed or use signed server-side session).
+3. Fix server [FC-SEC-003](./FC-SEC-003-introspection-token-not-verified) so even fallback clients cannot bypass crypto.
+
+## Tests / fuzz ideas
+
+- Lint or type-level marker: `allowIntrospectionFallback` named `__dangerous` in public API.
+- Integration test: fallback path must not activate when `NODE_ENV=production` in SDK consumer tests (if you add such a guard).
