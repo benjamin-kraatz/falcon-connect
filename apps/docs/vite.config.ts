@@ -5,6 +5,11 @@ import mdx from "fumadocs-mdx/vite";
 import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 
+/** Relative MDX links like `./FC-SEC-008-...` resolve under the current page and produce bogus nested URLs during prerender crawl (404). Prefer root-relative hrefs, e.g. `/docs/reviews/.../FC-SEC-008-...`. */
+function isBogusNestedReviewLink(path: string): boolean {
+  return /\/FC-SEC-[^/]+\/FC-SEC-[^/]+/.test(path);
+}
+
 export default defineConfig({
   server: {
     port: 3000,
@@ -15,6 +20,7 @@ export default defineConfig({
     tanstackStart({
       prerender: {
         enabled: true,
+        filter: (page) => !isBogusNestedReviewLink(page.path),
       },
     }),
     react(),
