@@ -6,6 +6,7 @@ import {
   decideInstallIntent,
   ensureDemoTrustedAppsRegistered,
   findIncomingConnection,
+  getTrustedAppManifestForApp,
   getFalconJwks,
   introspectConnection,
   issueConnectionAccessToken,
@@ -156,6 +157,12 @@ app.post("/v1/connections/find", async (c) => {
   const payload = parseSignedJsonBody(c);
 
   return c.json(await findConnection(c.get("trustedAppAuth"), payload));
+});
+
+app.post("/v1/trusted-apps/manifest", async (c) => {
+  const payload = parseSignedJsonBody(c);
+
+  return c.json(await getTrustedAppManifestForApp(c.get("trustedAppAuth"), payload));
 });
 
 app.post("/v1/connections/incoming", async (c) => {

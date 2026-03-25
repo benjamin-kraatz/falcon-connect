@@ -3,15 +3,19 @@ import {
   createInstallIntentResultSchema,
   connectionRecordSchema,
   findConnectionInputSchema,
+  getTrustedAppManifestInputSchema,
   issueConnectionTokenInputSchema,
   issueConnectionTokenResultSchema,
+  trustedAppManifestSchema,
   updateConnectionStatusInputSchema,
   type CreateInstallIntentInput,
   type CreateInstallIntentResult,
   type FindConnectionInput,
+  type GetTrustedAppManifestInput,
   type ConnectionRecord,
   type IssueConnectionTokenInput,
   type IssueConnectionTokenResult,
+  type TrustedAppManifest,
   type UpdateConnectionStatusInput,
 } from "./protocol";
 import { createFalconAppAuthHeaders } from "./crypto";
@@ -89,6 +93,15 @@ export class FalconConnectSourceClient {
         parse: (value) => (value == null ? null : connectionRecordSchema.parse(value)),
       },
       "/v1/connections/find",
+    );
+  }
+
+  async getTrustedAppManifest(input: GetTrustedAppManifestInput): Promise<TrustedAppManifest> {
+    return signedJsonRequest(
+      this.options,
+      getTrustedAppManifestInputSchema.parse(input),
+      trustedAppManifestSchema,
+      "/v1/trusted-apps/manifest",
     );
   }
 
