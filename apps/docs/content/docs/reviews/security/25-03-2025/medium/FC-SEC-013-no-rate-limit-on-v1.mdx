@@ -1,0 +1,36 @@
+---
+title: "FC-SEC-013 — No rate limiting on partner /v1 API"
+description: MEDIUM — Signed requests can be abused for CPU/DB load without observed throttles.
+---
+
+# FC-SEC-013: No rate limiting on partner `/v1` API
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **MEDIUM** |
+| **Confidence** | **High** (0.8) |
+| **Area** | `api`, `infra` |
+| **CWE** | CWE-307 (Improper Restriction of Excessive Authentication Attempts) / CWE-400 |
+
+## Summary
+
+The Hono server applies CORS and request logging but **no per-IP or per-`appId` rate limiting** was observed on `POST /v1/*`. Each request still pays for **Ed25519 verification**, DB nonce insert, and business logic. A stolen or demo signing key (see [FC-SEC-002](/docs/reviews/security/25-03-2025/critical/FC-SEC-002-hardcoded-demo-app-keys)) makes automated abuse trivial.
+
+## Leaked risks / impact
+
+- **Denial of service** against SQLite/DB and worker CPU.
+- **Credential stuffing** is not the model here, but **nonce table growth** ([FC-SEC-006](/docs/reviews/security/25-03-2025/medium/FC-SEC-006-nonce-replay-store-growth)) amplifies under load.
+
+## Evidence
+
+- `apps/server/src/index.ts`: `/v1/*` middleware only calls `authenticateTrustedAppRequest` then handlers (lines 97–177); no throttle.
+
+## Mitigation
+
+1. Edge rate limits (Cloudflare, API gateway) keyed by **client IP** and **`x-falcon-app-id`**.
+2. Exponential backoff hints via `Retry-After` on 429.
+3. Separate **low quota** for unauthenticated routes vs signed routes if needed.
+
+## Tests / fuzz ideas
+
+- Load test: sustained POSTs should trip 429 after threshold without affecting health checks (`/`).

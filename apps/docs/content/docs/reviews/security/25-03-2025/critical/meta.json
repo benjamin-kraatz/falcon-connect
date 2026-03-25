@@ -1,0 +1,8 @@
+{
+  "title": "Critical",
+  "pages": [
+    "index",
+    "FC-SEC-001-hardcoded-falcon-signing-key",
+    "FC-SEC-002-hardcoded-demo-app-keys"
+  ]
+}

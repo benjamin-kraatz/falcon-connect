@@ -1,0 +1,37 @@
+---
+title: "FC-SEC-010 — Zod validation errors returned verbatim"
+description: LOW — Full Zod message string in JSON may aid attackers mapping the API.
+---
+
+# FC-SEC-010: Zod validation errors returned verbatim
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **LOW** |
+| **Confidence** | **High** (0.85) |
+| **Area** | `api` |
+| **CWE** | CWE-209 (Generation of Error Message Containing Sensitive Information) |
+
+## Summary
+
+The Hono `onError` handler returns `error.message` from **`ZodError`** to API clients with HTTP 400. Zod’s default messages can include **schema paths, expected types, and union discrimination hints**, which helps attackers iterate on payloads.
+
+## Leaked risks / impact
+
+- **Information disclosure** about internal field names and validation rules.
+- Rarely, messages might echo **user-provided strings** in custom refinements (not deeply audited here).
+
+## Evidence
+
+- `apps/server/src/index.ts` (lines 71–78): `ZodError` branch returns `message: error.message`.
+
+## Mitigation
+
+1. In production, return a **generic** `VALIDATION_ERROR` code + optional **opaque** error id; log details server-side only.
+2. Use Zod’s `errorMap` or flatten errors into **stable error codes** per input field.
+3. Align ORPC/dashboard errors similarly if they expose Zod.
+
+## Tests / fuzz ideas
+
+- Contract test: production mode response body must not contain substring `"expected"`.
+- Fuzz random JSON bodies; ensure no stack traces in HTTP responses.

@@ -1,0 +1,45 @@
+---
+title: "FC-SEC-001 — Hardcoded fallback Falcon Connect signing key"
+description: CRITICAL — Default Ed25519 private JWK for Falcon JWT issuance when env is unset.
+---
+
+# FC-SEC-001: Hardcoded fallback Falcon Connect signing key
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **CRITICAL** |
+| **Confidence** | **High** (0.95) |
+| **Area** | `api`, crypto |
+| **CWE** | CWE-798 (Use of Hard-coded Credentials) |
+
+## Summary
+
+When `FALCON_CONNECT_SIGNING_PRIVATE_JWK` is not set, the server uses a **fixed Ed25519 private JWK** embedded in `packages/api/src/connect.ts` to sign install intent JWTs and connection access JWTs. Anyone with repository access (or a leaked build) can mint **valid** Falcon JWTs for any registered app id and connection id the database will accept, **without** holding a partner private key.
+
+## Leaked risks / impact
+
+- **Full break of JWT-based trust** for any deployment that omits the env var (misconfiguration is common).
+- Forgery of `falcon-connect-install-intent` and `falcon-connect-connection` tokens at will.
+- Combined with predictable or enumerable connection IDs in some setups, **unauthorized data API access** at targets that verify only JWT + scopes.
+
+## Preconditions / scenario
+
+1. Deploy Connect (or run locally) without setting `FALCON_CONNECT_SIGNING_PRIVATE_JWK`.
+2. Attacker uses the known `DEV_FALCON_SIGNING_PRIVATE_JWK` constant to sign JWTs with `kid` `falcon-connect-dev-1` (or whatever `FALCON_CONNECT_SIGNING_KEY_ID` defaults to).
+
+## Evidence
+
+- `DEV_FALCON_SIGNING_PRIVATE_JWK` and `getFalconSigningPrivateJwk()` fallback: `packages/api/src/connect.ts` (lines 49–54, 171–174).
+- JWT signing uses `getFalconSigningPrivateJwk()` for install intents and connection tokens: same file (e.g. `signInstallIntentToken` / `signConnectionAccessToken` call sites around 852–867 and 1131–1147).
+
+## Mitigation
+
+1. **Remove** the embedded private key from source; require explicit secret injection in every non-test environment.
+2. Use a **startup check**: refuse to boot issuance paths if signing material is missing or equals a known-dev placeholder.
+3. Store signing keys in a **KMS/HSM** or secret manager; support **key rotation** with multiple active `kid` values in JWKS.
+4. Add **monitoring** for JWKS fetch volume and token issuance rates.
+
+## Tests / fuzz ideas
+
+- Integration test: server **fails fast** when env var absent and `NODE_ENV=production` (or equivalent flag).
+- Property test: issued JWTs verify only against configured keys, never against a baked-in dev key in prod builds.

@@ -1,0 +1,39 @@
+---
+title: "FC-SEC-012 — Source callback trusts URL query parameters"
+description: MEDIUM — No cryptographic binding from callback params to intent/server; phishing/open redirect class.
+---
+
+# FC-SEC-012: Source callback trusts URL query parameters
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **MEDIUM** |
+| **Confidence** | **Medium** (0.75) |
+| **Area** | `apps`, `protocol` |
+| **CWE** | CWE-345 |
+
+## Summary
+
+The SDK helper `parseInstallCallback` reads `falcon_connect_status`, `falcon_connect_connection_id`, `falcon_connect_intent_id`, and `falcon_connect_reason` **directly from the URL** (`packages/sdk/src/source.ts`). Demo source apps likely persist this state without showing a pattern that **re-validates** against the Connect API (e.g. fetch connection by id with source signing key) before treating the connection as real.
+
+## Leaked risks / impact
+
+- **Phishing pages** can redirect users to a legitimate-looking callback URL on the source origin with **forged query params** (same-origin navigation). If the source app blindly trusts params, UI may show a “connected” state without a server-side record.
+- Combined with social engineering, users may **believe** a malicious target completed consent.
+
+**Mitigation on server side:** Connect only redirects to **allow-listed** `sourceReturnUrl`; this finding is about **source app verification discipline**, not Connect server open redirect.
+
+## Evidence
+
+- `parseInstallCallback`: `packages/sdk/src/source.ts` (lines 104–112).
+- Allow-list for return URL at intent creation: `packages/api/src/connect.ts` (`createInstallIntent`, lines 795–802).
+
+## Mitigation
+
+1. Document a **mandatory** server-side step: after callback, source backend calls **`findConnection`** or **`issueConnectionAccessToken`** and confirms `connectionId` matches an intent the source created.
+2. Include a **signed state** or **nonce** in callback params (issued when creating intent) and verify it on return (requires protocol extension).
+3. Use **`POST`** callback with body instead of query for sensitive ids (with CSRF protection).
+
+## Tests / fuzz ideas
+
+- Integration test template for integrators: callback with arbitrary `connectionId` must **not** activate connection until API confirms.

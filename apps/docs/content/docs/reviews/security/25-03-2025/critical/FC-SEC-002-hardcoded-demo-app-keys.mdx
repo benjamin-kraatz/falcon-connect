@@ -1,0 +1,45 @@
+---
+title: "FC-SEC-002 — Hardcoded demo trusted-app private keys"
+description: CRITICAL — Ed25519 private keys for demo source/target apps in source and DB bootstrap.
+---
+
+# FC-SEC-002: Hardcoded demo trusted-app private keys
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **CRITICAL** |
+| **Confidence** | **High** (0.95) |
+| **Area** | `api`, `apps` |
+| **CWE** | CWE-798 |
+
+## Summary
+
+Demo trusted applications (`project-hub-demo`, `incident-ops-demo`) ship with **full Ed25519 private keys** in `packages/api/src/connect.ts` (`DEMO_SOURCE_APP`, `DEMO_TARGET_APP`) and again in demo apps (e.g. `apps/demo-01`, `apps/demo-02`). `ensureDemoTrustedAppsRegistered()` upserts these keys into the database whenever the server runs. Any network client can sign **`POST /v1/*`** requests as those app identities.
+
+## Leaked risks / impact
+
+- **Complete impersonation** of demo (and any environment reusing those IDs) trusted apps: create install intents, approve/deny as target, issue connection tokens as source, introspect as target, change connection status.
+- If production ever reuses the same app IDs or imports the same bootstrap routine, **production compromise** follows immediately.
+
+## Preconditions / scenario
+
+1. Attacker can reach the Connect HTTP API (same as a legitimate integrator).
+2. Server has run `ensureDemoTrustedAppsRegistered()` (default in `apps/server/src/index.ts` global middleware).
+
+## Evidence
+
+- Demo key material and bootstrap: `packages/api/src/connect.ts` (lines 60–131, `ensureDemoTrustedAppsRegistered` ~654–700).
+- Server always calls `ensureDemoTrustedAppsRegistered`: `apps/server/src/index.ts` (lines 38–40).
+- Duplicate private JWK in target demo: `apps/demo-02/src/lib/target-server.ts` (lines 14–19).
+
+## Mitigation
+
+1. **Never** register long-lived private keys from source in production; use **one-time dev bootstrap** guarded by `FALCON_DEV_MODE` or similar.
+2. Generate **per-environment** keys during local setup; document that demo keys are **public-insecure**.
+3. Split **demo server** from **production** binary or use feature flags so demo registration is unreachable in prod builds.
+4. Rotate keys if these values ever touched a non-local database.
+
+## Tests / fuzz ideas
+
+- CI assertion: fail build if known demo `d` values appear in artifacts destined for production.
+- E2E test that demo bootstrap is **disabled** when `FALCON_ALLOW_DEMO_BOOTSTRAP=false`.

@@ -1,0 +1,43 @@
+---
+title: "FC-SEC-008 — Ops ORPC surface exposes registry and activity"
+description: MEDIUM — Any authenticated dashboard user can list apps, intents, connections, audit events.
+---
+
+# FC-SEC-008: Ops ORPC surface exposes registry and activity
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **MEDIUM** |
+| **Confidence** | **High** (0.85) |
+| **Area** | `api`, `auth` |
+| **CWE** | CWE-200 (Exposure of Sensitive Information) |
+
+## Summary
+
+Under `appRouter.ops`, all procedures use `protectedProcedure` (session required) but **no role-based access control** was observed. Handlers return:
+
+- Full **trusted app manifests** (`listTrustedApps` → `mapTrustedAppManifestFromRow`)
+- Recent **install intents** with subject/org fields
+- **Connections** with scope grants and lifecycle fields
+- **Audit events** with parsed JSON payloads
+
+## Leaked risks / impact
+
+- **Cross-tenant information disclosure** if the dashboard user base is not strictly operators.
+- Aids **targeted attacks** (mapping app ids, URLs, subject identifiers) and combines badly with [FC-SEC-007](/docs/reviews/security/25-03-2025/high/FC-SEC-007-dashboard-connection-status-idor).
+
+## Evidence
+
+- Router: `packages/api/src/routers/index.ts` (lines 24–32).
+- Implementations: `packages/api/src/connect.ts` (`listTrustedApps`, `listInstallIntents`, `listConnections`, `listAuditEvents`, ~1314–1389).
+
+## Mitigation
+
+1. Introduce **`admin` / `operator` role** in Better Auth and enforce in middleware for `ops.*`.
+2. Scope listings to **organizations** the user belongs to (if that is the product model).
+3. Redact **PII** in audit payloads returned to UI (hash subject ids, truncate emails).
+
+## Tests / fuzz ideas
+
+- RBAC matrix tests for each `ops` procedure.
+- Snapshot test: ensure non-operator never receives other tenants’ `falconSubjectId`.

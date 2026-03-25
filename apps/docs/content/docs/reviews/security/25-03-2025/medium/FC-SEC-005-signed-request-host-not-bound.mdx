@@ -1,0 +1,45 @@
+---
+title: "FC-SEC-005 — Signed request canonicalization omits scheme and host"
+description: MEDIUM — Signature covers path+query only; host header confusion class under misconfigured proxies.
+---
+
+# FC-SEC-005: Signed request canonicalization omits scheme and host
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **MEDIUM** |
+| **Confidence** | **Medium** (0.65) |
+| **Area** | `sdk`, `api`, `protocol` |
+| **CWE** | CWE-444 (Inconsistent Interpretation of HTTP Requests) |
+
+## Summary
+
+`canonicalizeFalconAppRequest` builds the signed string from:
+
+- uppercased method
+- **`pathname` + `search` only** (from `new URL(input.url)`)
+- body hash, app id, key id, timestamp, nonce
+
+It does **not** include the origin (scheme/host/port). The server verifies using `c.req.url` from Hono (`apps/server/src/index.ts`), which reflects the **incoming Host/scheme** as seen by the app.
+
+## Leaked risks / impact
+
+In **misconfigured reverse-proxy** or **virtual-host** setups, the same path+body could theoretically be valid for more than one absolute URL the client might have intended, enabling **request smuggling across logical hosts** in the same signing ecosystem. Practical exploitability depends entirely on deployment topology; many deployments are single-tenant with one public URL.
+
+**Hypothesis:** In a correct TLS + single canonical public URL deployment, risk is **low**. Marked MEDIUM for defense-in-depth.
+
+## Evidence
+
+- Canonicalization: `packages/sdk/src/crypto.ts` (`canonicalizeFalconAppRequest`, lines 59–78).
+- Server passes full URL: `apps/server/src/index.ts` (`authenticateTrustedAppRequest` with `url: c.req.url`, lines 97–104).
+
+## Mitigation
+
+1. Include **`${origin}`** or full URL in the canonical string (version the scheme: e.g. `v2` prefix).
+2. Server-side: normalize URL against a configured **`FALCON_CONNECT_PUBLIC_BASE_URL`** before verify.
+3. Document: “Clients must sign the same absolute URL string the server expects,” and reject requests whose Host does not match allow-list.
+
+## Tests / fuzz ideas
+
+- Conformance vectors: same path on two different hosts must produce **different** signatures after hardening.
+- Proxy integration test with `X-Forwarded-Host` abuse attempts.

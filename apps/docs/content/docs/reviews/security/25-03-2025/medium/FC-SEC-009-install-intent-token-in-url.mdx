@@ -1,0 +1,39 @@
+---
+title: "FC-SEC-009 — Install intent JWT delivered in query string"
+description: MEDIUM — Referrer logs, browser history, and shoulder-surfing risk for intent token.
+---
+
+# FC-SEC-009: Install intent JWT delivered in query string
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **MEDIUM** |
+| **Confidence** | **High** (0.9) |
+| **Area** | `protocol`, `apps` |
+| **CWE** | CWE-598 (Use of GET Request Method With Sensitive Query Strings) |
+
+## Summary
+
+When creating an install intent, the server builds `connectUrl` by appending the full **`intentToken` JWT** as query parameter `falcon_connect_intent` on the target’s `connectRequestUrl`.
+
+## Leaked risks / impact
+
+- **Referer header leakage** if the target page loads third-party assets with full URL referrers.
+- **Proxy/access logs** on target infrastructure capture high-entropy secrets.
+- **Browser history** and shared screenshots may expose tokens before expiry.
+- Tokens may be **logged** by client-side analytics if URLs are tracked.
+
+## Evidence
+
+- `createInstallIntent` builds URL: `packages/api/src/connect.ts` (lines 870–871).
+
+## Mitigation
+
+1. Prefer **`POST` redirect** (self-submitting form) or **`fragment`**-only delivery (`#falcon_connect_intent=`) so Referer typically excludes fragment (still not perfect for all clients).
+2. Use **one-time opaque** `intent_id` in query + server-side exchange for JWT over signed back-channel (source already has server credentials).
+3. Shorten JWT lifetime aggressively for intent tokens; **single-use** binding at resolve time (server partially enforces pending state; token can still be copied).
+
+## Tests / fuzz ideas
+
+- E2E: verify no third-party requests send full connect URL as Referer (manual browser check).
+- Document integrator requirement: **no client-side logging** of `window.location.href` on connect pages.

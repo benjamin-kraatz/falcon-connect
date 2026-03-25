@@ -1,0 +1,10 @@
+{
+  "title": "High",
+  "pages": [
+    "index",
+    "FC-SEC-003-introspection-token-not-verified",
+    "FC-SEC-004-sdk-introspection-fallback-decodeJwtUnsafe",
+    "FC-SEC-007-dashboard-connection-status-idor",
+    "FC-SEC-011-demo-insecure-reference-patterns"
+  ]
+}

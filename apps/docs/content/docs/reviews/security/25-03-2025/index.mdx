@@ -1,0 +1,25 @@
+---
+title: "FALCON Connect security review — 25 March 2025"
+description: Executive summary for the evidence-backed review at commit b896a79ce6833e5d92c7b2499d26dd1c29aa96f7.
+---
+
+# FALCON Connect — security review (25 March 2025)
+
+**Repository commit reviewed:** `b896a79ce6833e5d92c7b2499d26dd1c29aa96f7`  
+**Branch:** `cursor/connect-security-review-cb25`
+
+This document is a **report-only** review. No production code was changed as part of producing it.
+
+## Executive summary
+
+FALCON Connect separates **dashboard user sessions** (Better Auth, ORPC `protectedProcedure`) from **partner traffic** (`POST /v1/*`), which is authenticated with **Ed25519-signed requests**, **nonce replay suppression**, and **JWTs** for install intents and connection access. The design has several strong properties (target-bound install intent JWT audience, source return URL allow-listing, connection row checks keyed off the authenticated app id).
+
+The highest risks in the reviewed tree are **operational and cryptographic**: a **hardcoded fallback Falcon signing private JWK** and **hardcoded demo Ed25519 private keys** ship in source; if those patterns reach production or are copied by integrators, **full token forgery and impersonation** of any registered trusted app is possible. Separately, **`introspectConnection` treats an arbitrary `connectionToken` as trusted** after only `decodeJwtUnsafe` — any party that can obtain or guess a valid `connectionId` can get an “active” introspection result for tokens they did not prove possession of.
+
+Secondary issues include **signed-request canonicalization that ignores scheme/host** (proxy/host-header confusion class), **unbounded nonce table growth**, **dashboard IDOR on connection status updates**, **broad ops read APIs for any authenticated user**, **install intent JWTs in query strings** (referrer/log leakage), **verbose Zod validation errors** on the wire, and **demo apps** that embed private keys, use `localStorage`, and expose token-handling HTTP endpoints.
+
+---
+
+**Full report:** [Threat model, methodology, findings table, and backlog](/docs/reviews/security/25-03-2025/overview)
+
+**Findings by severity:** [Critical](/docs/reviews/security/25-03-2025/critical) · [High](/docs/reviews/security/25-03-2025/high) · [Medium](/docs/reviews/security/25-03-2025/medium) · [Low](/docs/reviews/security/25-03-2025/low)

@@ -1,0 +1,39 @@
+---
+title: "FC-SEC-007 — Dashboard connection status update is IDOR"
+description: HIGH — Any authenticated user can change lifecycle of any connection by id.
+---
+
+# FC-SEC-007: Dashboard `updateConnectionStatus` is IDOR
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **HIGH** |
+| **Confidence** | **High** (0.9) |
+| **Area** | `api`, `auth` |
+| **CWE** | CWE-639 (Authorization Bypass Through User-Controlled Key) |
+
+## Summary
+
+The ORPC handler `ops.updateConnectionStatus` calls `updateConnectionStatus(rawInput)` from `packages/api/src/connect.ts`. That function loads a connection **only by `connectionId`** and updates status **without** checking that the current user owns or administers that connection. Contrast with `updateConnectionStatusForApp`, which requires the caller to be the source or target trusted app.
+
+## Leaked risks / impact
+
+Any user who can sign into the dashboard and call the ORPC API can **pause, resume, or revoke arbitrary connections** if they know or guess UUIDs (and the UI may even surface ids from shared ops lists — see [FC-SEC-008](/docs/reviews/security/25-03-2025/medium/FC-SEC-008-ops-surface-data-exposure)).
+
+## Evidence
+
+- Router wires dashboard to unscoped update: `packages/api/src/routers/index.ts` (lines 30–32).
+- `updateConnectionStatus` implementation: `packages/api/src/connect.ts` (lines 1461–1518) — no session user check; only `connectionId` lookup.
+- Scoped variant for partners: `updateConnectionStatusForApp` (lines 1392–1458).
+
+## Mitigation
+
+1. Remove `updateConnectionStatus` from generic ops or gate it behind **admin role** + audit.
+2. Bind updates to **tenant/user** records (if product model has org ownership of connections).
+3. Prefer reusing **`updateConnectionStatusForApp`**-style checks with **user-to-app** mapping rather than global ids.
+4. Use real **`actorId`** from session instead of literal `"dashboard"` in audit events (line ~1502).
+
+## Tests / fuzz ideas
+
+- Authorization test: non-admin session attempting ops update on foreign `connectionId` → **403**.
+- Fuzz random UUIDs; ensure rate limit + no information leak in error body.

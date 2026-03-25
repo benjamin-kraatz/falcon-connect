@@ -1,0 +1,45 @@
+---
+title: "FC-SEC-003 — Introspection accepts connectionToken without verification"
+description: HIGH — Server decodes JWT payload only; does not verify signature before marking active.
+---
+
+# FC-SEC-003: Introspection accepts `connectionToken` without cryptographic verification
+
+| Field | Value |
+| --- | --- |
+| **Severity** | **HIGH** |
+| **Confidence** | **High** (0.9) |
+| **Area** | `api`, `protocol` |
+| **CWE** | CWE-345 (Insufficient Verification of Authenticity) |
+
+## Summary
+
+`introspectConnection` optionally accepts `connectionToken`. When present, the server uses **`decodeJwtUnsafe`** to read `connectionId` from the payload. It does **not** verify the JWT signature, `exp`, `aud`, or `iss` on that token. It then loads the connection row and, if status is `active`, returns **`active: true`** and refreshes `lastVerifiedAt`.
+
+## Leaked risks / impact
+
+- Any caller authenticated as the **target app** can obtain an “active” introspection result for a forged token string whose **unverified** payload contains a victim `connectionId`, **without proving possession** of a legitimate connection access JWT.
+- This weakens the security story of “introspection when local verification fails”: the server trusts client-supplied token bytes only enough to parse JSON, not to authenticate them.
+
+**Note:** The caller must still be a registered target app (signed request). This is an **authz/logic** flaw for introspection semantics, not anonymous remote exploitation.
+
+## Preconditions / scenario
+
+1. Attacker controls or compromises the **target app** signing key (or is the malicious target integrator).
+2. Attacker knows or guesses a valid `connectionId` for their app as target.
+3. Attacker crafts arbitrary base64 JWT-shaped bytes with `{"connectionId":"<id>",...}` in payload and calls `POST /v1/connections/introspect` with `connectionToken` set.
+
+## Evidence
+
+- `introspectConnection`: `packages/api/src/connect.ts` (lines 1198–1260), specifically `decodeJwtUnsafe` and branch that sets `via: "token"` in audit payload (~1252).
+
+## Mitigation
+
+1. **Always** verify `connectionToken` with the same rules as `verifyConnectionAccessToken` (JWKS, `iss`, `aud`, `exp`, `kind`, connection claims) before treating introspection as success.
+2. If verification fails, return `active: false` with a distinct reason (e.g. `invalid_token`).
+3. Alternatively, **remove** `connectionToken` from the API and require callers to pass only `connectionId` after they have **locally verified** the JWT (document that introspection is **not** a substitute for verification).
+
+## Tests / fuzz ideas
+
+- Negative test: introspection with malformed signature but valid `connectionId` in payload must return **inactive** or **401**, not active.
+- Golden test: only a token signed by Falcon’s current key with correct `aud`/`iss` yields `active: true`.
