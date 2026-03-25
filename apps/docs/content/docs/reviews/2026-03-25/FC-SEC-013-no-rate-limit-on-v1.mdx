@@ -14,12 +14,12 @@ description: MEDIUM — Signed requests can be abused for CPU/DB load without ob
 
 ## Summary
 
-The Hono server applies CORS and request logging but **no per-IP or per-`appId` rate limiting** was observed on `POST /v1/*`. Each request still pays for **Ed25519 verification**, DB nonce insert, and business logic. A stolen or demo signing key (see [FC-SEC-002](./FC-SEC-002-hardcoded-demo-app-keys)) makes automated abuse trivial.
+The Hono server applies CORS and request logging but **no per-IP or per-`appId` rate limiting** was observed on `POST /v1/*`. Each request still pays for **Ed25519 verification**, DB nonce insert, and business logic. A stolen or demo signing key (see [FC-SEC-002](/docs/reviews/2026-03-25/FC-SEC-002-hardcoded-demo-app-keys)) makes automated abuse trivial.
 
 ## Leaked risks / impact
 
 - **Denial of service** against SQLite/DB and worker CPU.
-- **Credential stuffing** is not the model here, but **nonce table growth** ([FC-SEC-006](./FC-SEC-006-nonce-replay-store-growth)) amplifies under load.
+- **Credential stuffing** is not the model here, but **nonce table growth** ([FC-SEC-006](/docs/reviews/2026-03-25/FC-SEC-006-nonce-replay-store-growth)) amplifies under load.
 
 ## Evidence
 
