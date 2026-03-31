@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { startTransition, useState } from "react";
 
+import { Badge } from "@falcon/ui/components/badge";
 import { Button } from "@falcon/ui/components/button";
 import {
   Card,
@@ -11,6 +12,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@falcon/ui/components/card";
+import { Switch } from "@falcon/ui/components/switch";
 
 import { getUser } from "@/functions/get-user";
 import { client, orpc, queryClient } from "@/utils/orpc";
@@ -107,11 +109,11 @@ function statusTone(status: string) {
 
 function StatusBadge({ status }: { status: string }) {
   return (
-    <span
+    <Badge
       className={`inline-flex min-w-20 justify-center border px-2 py-1 text-[11px] uppercase tracking-[0.24em] ${statusTone(status)}`}
     >
       {status}
-    </span>
+    </Badge>
   );
 }
 
@@ -259,34 +261,22 @@ function RouteComponent() {
                             </td>
                             <td className="py-3">
                               <div className="flex flex-wrap justify-end gap-2">
-                                {item.status !== "active" ? (
-                                  <Button
-                                    size="xs"
-                                    variant="secondary"
+                                <div className="flex items-center gap-2">
+                                  <Switch
+                                    checked={item.status === "active"}
                                     disabled={isBusy}
-                                    onClick={() => runConnectionAction(item.id, "active")}
-                                  >
-                                    Reactivate
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    size="xs"
-                                    variant="outline"
-                                    disabled={isBusy}
-                                    onClick={() =>
-                                      runConnectionAction(
+                                    onCheckedChange={(checked) => {
+                                      return runConnectionAction(
                                         item.id,
-                                        "paused",
-                                        "Paused from ops console",
-                                      )
-                                    }
-                                  >
-                                    Pause
-                                  </Button>
-                                )}
+                                        checked ? "active" : "paused",
+                                        checked ? undefined : "Paused from ops console",
+                                      );
+                                    }}
+                                  />
+                                </div>
                                 {item.status !== "revoked" ? (
                                   <Button
-                                    size="xs"
+                                    size="sm"
                                     variant="destructive"
                                     disabled={isBusy}
                                     onClick={() =>
