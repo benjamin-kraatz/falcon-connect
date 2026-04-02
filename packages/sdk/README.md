@@ -7,7 +7,7 @@ This is the TypeScript SDK for integrating partner applications with FALCON Conn
 The package is published under the `@falcon` scope. Point that scope at your Verdaccio host (development default: `http://localhost:4873/`). In your project (or user-level npm config), set:
 
 ```ini
-@falcon:registry=http://localhost:4873/
+@falcon:registry=https://npm.d-zwei.de/
 ```
 
 Then install with your package manager (peer dependencies: `effect`, `zod`):

@@ -22,7 +22,7 @@
     "./package.json": "./package.json"
   },
   "publishConfig": {
-    "registry": "http://localhost:4873/"
+    "registry": "https://npm.d-zwei.de/"
   },
   "scripts": {
     "build": "tsdown",
