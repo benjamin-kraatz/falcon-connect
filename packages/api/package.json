@@ -1,5 +1,6 @@
 {
   "name": "@falcon/api",
+  "private": true,
   "type": "module",
   "exports": {
     ".": {
@@ -27,6 +28,6 @@
   "devDependencies": {
     "@falcon/config": "workspace:*",
     "hono": "catalog:",
-    "typescript": "^5"
+    "typescript": "catalog:"
   }
 }

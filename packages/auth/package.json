@@ -1,5 +1,6 @@
 {
   "name": "@falcon/auth",
+  "private": true,
   "type": "module",
   "exports": {
     ".": {
@@ -19,6 +20,6 @@
   },
   "devDependencies": {
     "@falcon/config": "workspace:*",
-    "typescript": "^5"
+    "typescript": "catalog:"
   }
 }

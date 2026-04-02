@@ -2,6 +2,32 @@
 
 This is the TypeScript SDK for integrating partner applications with FALCON Connect.
 
+## Install
+
+The package is published under the `@falcon` scope. Point that scope at your Verdaccio host (development default: `http://localhost:4873/`). In your project (or user-level npm config), set:
+
+```ini
+@falcon:registry=http://localhost:4873/
+```
+
+Then install with your package manager (peer dependencies: `effect`, `zod`):
+
+```bash
+bun add @falcon/sdk
+# or: npm install @falcon/sdk
+```
+
+## Publishing (maintainers)
+
+From the monorepo root:
+
+1. `bun run changeset` — add a changeset when the SDK API or behavior changes.
+2. `bun run version-packages` — apply version bumps and changelogs (`changeset version`).
+3. Authenticate to Verdaccio if needed: `npm adduser --registry http://localhost:4873/`
+4. `bun run release` — runs `changeset publish` (uses [`publishConfig`](./package.json) on `@falcon/sdk`).
+
+Ensure `packages/sdk` is built (`dist/`) before publish; `prepack` runs `tsdown` automatically when packing or publishing.
+
 ## Surface Area
 
 - source app helpers
