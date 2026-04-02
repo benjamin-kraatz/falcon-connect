@@ -31,6 +31,7 @@ The current implementation is opinionated on purpose. Partner-facing documentati
 - Trusted apps are registered manually by FALCON staff.
 - Connections are directional. If App A can call App B, that does not imply that App B can call App A.
 - Connection state is keyed by `falconSubjectId` and `organizationId`.
+- Source apps may fetch a target app manifest, including declared scopes, before starting an install flow.
 - The target app owns the actual user authentication and consent screen.
 - Runtime verification is hybrid: local JWT verification first, FALCON introspection when local verification is insufficient or stale.
 - The first mandatory FALCON system scope is `read:app-info`.

@@ -28,7 +28,8 @@
       "libsql": "0.5.22",
       "@orpc/client": "^1.12.2",
       "@types/react": "^19.2.10",
-      "@types/react-dom": "^19.2.3"
+      "@types/react-dom": "^19.2.3",
+      "typescript": "^5.9.3"
     },
     "catalogs": {
       "effect": {
@@ -62,6 +63,9 @@
     "format": "oxfmt --write",
     "lint": "oxlint",
     "test": "nx run-many -t test",
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "changeset publish",
     "prepare": "effect-language-service patch"
   },
   "dependencies": {
@@ -72,6 +76,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@changesets/cli": "^2.30.0",
     "@cloudflare/workers-types": "catalog:",
     "@effect/language-service": "catalog:effect",
     "@falcon/config": "workspace:*",
@@ -80,7 +85,7 @@
     "nx": "^21.5.2",
     "oxfmt": "^0.26.0",
     "oxlint": "^1.41.0",
-    "typescript": "^5"
+    "typescript": "catalog:"
   },
   "packageManager": "bun@1.3.9"
 }

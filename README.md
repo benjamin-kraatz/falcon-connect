@@ -10,6 +10,7 @@ FALCON Connect is a registry and verification control plane for app-to-app integ
 It does **not** proxy or transport business data. Instead, it handles:
 
 - trusted app registration
+- trusted app manifest delivery for partner discovery
 - install intent creation
 - target-app consent state
 - directional connection records
@@ -61,6 +62,12 @@ connect/
 ## SDK
 
 The public TypeScript integration surface lives in [packages/sdk/README.md](./packages/sdk/README.md).
+
+Recent source-side additions worth knowing about:
+
+- source apps can fetch a target app manifest before starting the flow
+- the manifest includes the target app's declared scopes and metadata
+- source-side settings UIs can now build their scope picker directly from Falcon data instead of re-declaring target scopes locally
 
 ## Demo Apps
 

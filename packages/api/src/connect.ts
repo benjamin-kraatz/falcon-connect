@@ -38,6 +38,7 @@ import {
   decideInstallIntentInputSchema,
   findConnectionInputSchema,
   findIncomingConnectionInputSchema,
+  getTrustedAppManifestInputSchema,
   installIntentRecordSchema,
   introspectConnectionInputSchema,
   issueConnectionTokenInputSchema,
@@ -406,6 +407,21 @@ async function getTrustedAppManifest(appId: string) {
   }
 
   return mapTrustedAppManifestFromRow(row);
+}
+
+export async function getTrustedAppManifestForApp(
+  auth: AuthenticatedAppRequest,
+  rawInput: unknown,
+) {
+  const input = getTrustedAppManifestInputSchema.parse(rawInput);
+  void auth;
+
+  const manifest = await getTrustedAppManifest(input.appId);
+
+  ensure(manifest, 404, "TRUSTED_APP_NOT_FOUND", "The trusted app was not found");
+  ensure(manifest.status === "active", 400, "TRUSTED_APP_INACTIVE", "The trusted app is inactive");
+
+  return manifest;
 }
 
 async function getTrustedAppKeyRow(appId: string, keyId: string) {

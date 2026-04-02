@@ -2,9 +2,36 @@
 
 This is the TypeScript SDK for integrating partner applications with FALCON Connect.
 
+## Install
+
+The package is published under the `@falcon` scope. Point that scope at your Verdaccio host (development default: `http://localhost:4873/`). In your project (or user-level npm config), set:
+
+```ini
+@falcon:registry=https://npm.d-zwei.de/
+```
+
+Then install with your package manager (peer dependencies: `effect`, `zod`):
+
+```bash
+bun add @falcon/sdk
+# or: npm install @falcon/sdk
+```
+
+## Publishing (maintainers)
+
+From the monorepo root:
+
+1. `bun run changeset` — add a changeset when the SDK API or behavior changes.
+2. `bun run version-packages` — apply version bumps and changelogs (`changeset version`).
+3. Authenticate to Verdaccio if needed: `npm adduser --registry http://localhost:4873/`
+4. `bun run release` — runs `changeset publish` (uses [`publishConfig`](./package.json) on `@falcon/sdk`).
+
+Ensure `packages/sdk` is built (`dist/`) before publish; `prepack` runs `tsdown` automatically when packing or publishing.
+
 ## Surface Area
 
 - source app helpers
+  - fetch a trusted app manifest by app id
   - create install intents
   - parse install callbacks
   - mint runtime connection tokens
@@ -26,6 +53,7 @@ This is the TypeScript SDK for integrating partner applications with FALCON Conn
 ## Key Concepts
 
 - trusted apps authenticate to Falcon with request signatures backed by their private JWK
+- source apps can preflight a target app's manifest and scope catalog before they create an install intent
 - target apps own the user-facing login and consent route
 - Falcon issues short-lived JWTs for runtime verification
 - target apps verify locally against Falcon JWKS and introspect on fallback
@@ -33,6 +61,46 @@ This is the TypeScript SDK for integrating partner applications with FALCON Conn
 ## Mandatory System Scopes
 
 V1 starts with `read:app-info` as a non-disableable Falcon system scope. The SDK treats system and required scopes as locked during consent selection.
+
+## Source-Side Manifest Discovery
+
+If your source app wants to render a scope picker before it starts an install flow, fetch the target app manifest first and build the UI from the returned `scopes`.
+
+```ts
+import { createFalconConnectSourceClient } from "@falcon/sdk";
+
+const sourceClient = createFalconConnectSourceClient({
+  baseUrl: "https://connect.falcon.example",
+  appId: "orders",
+  keyId: "orders-key-1",
+  privateJwk: JSON.parse(process.env.FALCON_PRIVATE_JWK!),
+});
+
+const manifest = await sourceClient.getTrustedAppManifest({
+  appId: "invoices",
+});
+
+const selectableScopes = manifest.scopes.map((scope) => ({
+  name: scope.name,
+  title: scope.displayName,
+  description: scope.description,
+  required: scope.requiredByDefault,
+  system: scope.system,
+}));
+```
+
+This is the recommended way to populate source-side configuration screens. It keeps the source app aligned with the target app's published scope catalog and avoids stale, duplicated scope constants in partner code.
+
+## Recommended Source Flow
+
+For a production source app, the recommended sequence is:
+
+1. fetch the target app manifest if you need to show scopes or target metadata in your UI
+2. let the user confirm the requested optional scopes
+3. call `createInstallIntent` with the selected scope names
+4. redirect to the returned `connectUrl`
+5. parse the callback and persist the `connectionId`
+6. mint runtime tokens on demand with `issueConnectionAccessToken`
 
 ## End-to-End Demo Apps
 

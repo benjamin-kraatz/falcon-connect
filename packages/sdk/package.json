@@ -1,23 +1,39 @@
 {
   "name": "@falcon/sdk",
+  "version": "0.1.1",
+  "description": "TypeScript SDK for integrating partner applications with FALCON Connect",
+  "license": "UNLICENSED",
+  "files": [
+    "dist",
+    "LICENSE",
+    "README.md"
+  ],
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": {
-      "default": "./src/index.ts"
-    },
-    "./*": {
-      "default": "./src/*.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     },
     "./effect": {
-      "default": "./src/effect/index.ts"
-    }
+      "types": "./dist/effect/index.d.ts",
+      "import": "./dist/effect/index.js"
+    },
+    "./package.json": "./package.json"
   },
-  "scripts": {},
+  "publishConfig": {
+    "registry": "https://npm.d-zwei.de/"
+  },
+  "scripts": {
+    "build": "tsdown",
+    "prepack": "tsdown",
+    "check-types": "tsc --noEmit"
+  },
   "dependencies": {
     "jose": "^6.2.2"
   },
   "devDependencies": {
-    "@falcon/config": "file:../config",
+    "tsdown": "^0.21.7",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {

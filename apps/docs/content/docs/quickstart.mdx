@@ -38,15 +38,16 @@ Your team keeps the corresponding private JWK on your side. FALCON never needs t
 
 The complete flow in v1 is:
 
-1. The source app creates an install intent in FALCON Connect.
-2. FALCON validates the request and returns a signed install intent token and a target-app connect URL.
-3. The user is redirected to the target app.
-4. The target app resolves the install intent with FALCON.
-5. The target app authenticates the user locally and renders consent.
-6. The target app approves or denies the request.
-7. FALCON stores the directional connection and returns a callback URL for the source app.
-8. Later, the source app mints a short-lived runtime token and calls the target app directly.
-9. The target app verifies the token locally and introspects FALCON when needed.
+1. The source app may fetch the target app manifest if it wants to display target metadata or let the user choose optional scopes.
+2. The source app creates an install intent in FALCON Connect.
+3. FALCON validates the request and returns a signed install intent token and a target-app connect URL.
+4. The user is redirected to the target app.
+5. The target app resolves the install intent with FALCON.
+6. The target app authenticates the user locally and renders consent.
+7. The target app approves or denies the request.
+8. FALCON stores the directional connection and returns a callback URL for the source app.
+9. Later, the source app mints a short-lived runtime token and calls the target app directly.
+10. The target app verifies the token locally and introspects FALCON when needed.
 
 The Project Hub -> Incident Ops demo pair implements this exact flow end to end.
 
@@ -63,10 +64,13 @@ POST /v1/connections/find
 POST /v1/connections/incoming
 POST /v1/connections/introspect
 POST /v1/connections/status
+POST /v1/trusted-apps/manifest
 GET  /.well-known/jwks.json
 ```
 
 Every `POST /v1/*` request is authenticated as a trusted app through FALCON request-signing headers. FALCON Connect does not use dashboard user sessions for partner app traffic.
+
+`POST /v1/trusted-apps/manifest` is especially useful for source apps that want to build a scope picker or integration settings UI from the target app's published scope catalog instead of duplicating scope definitions locally.
 
 ## The Most Important Concepts to Keep Straight
 

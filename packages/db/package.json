@@ -1,5 +1,6 @@
 {
   "name": "@falcon/db",
+  "private": true,
   "type": "module",
   "exports": {
     ".": {
